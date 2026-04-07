@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-layout">
+    
+    {% include 'sidebar.html' %}
+    
+    <div class="main-content" style="padding: 3rem;">
+        <h1 style="margin-bottom: 2rem; font-size: 2.2rem;">Access Management</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
+                        <i class="fa-solid fa-check-circle"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+            
+            <!-- Users List -->
+            <div class="glass-panel">
+                <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-address-book"></i> Active Entities</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Image</th>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Allowed Floors</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>
+                                {% if u.Face_encoding %}
+                                <img src="{{ url_for('static', filename=u.Face_encoding.split('static/')[1] if 'static/' in u.Face_encoding else '') }}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);">
+                                {% else %}
+                                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-user"></i></div>
+                                {% endif %}
+                            </td>
+                            <td style="font-weight: 600;">{{ u.name }}</td>
+                            <td>
+                                {% if u.access_type == 'Operator' %}
+                                <span class="badge badge-danger">Operator</span>
+                                {% elif u.access_type == 'Faculty' %}
+                                <span class="badge badge-success">Faculty</span>
+                                {% elif u.access_type == 'Disability' %}
+                                <span class="badge badge-warning">Disability</span>
+                                {% else %}
+                                <span class="badge badge-info">Temporary</span>
+                                {% endif %}
+                            </td>
+                            <td style="color: var(--text-muted);">{{ u.allowed_floors }}</td>
+                            <td>
+                                <button onclick="editUser({{ u.id }})" class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; margin-right: 0.5rem;">
+                                    <i class="fa-solid fa-edit"></i> Edit
+                                </button>
+                                <button onclick="deleteUser({{ u.id }}, '{{ u.name }}')" class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: var(--danger); box-shadow: 0 4px 12px rgba(248, 113, 113, 0.3);">
+                                    <i class="fa-solid fa-trash"></i> Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Add User Form -->
+            <div class="glass-panel" style="align-self: start;">
+                <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-user-plus"></i> Enroll Identity</h3>
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" name="name" required placeholder="John Doe">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Contact Email (Required for Telemetry)</label>
+                        <input type="email" name="email" required placeholder="user@university.edu">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select name="access_role" id="roleSelector" onchange="toggleFields()">
+                            <option value="Operator">Operator</option>
+                            <option value="Faculty">Faculty</option>
+                            <option value="Disability">Disability Priority</option>
+                            <option value="Temporary">Temporary</option>
+                        </select>
+                    </div>
+
+                    <div id="academicFields" style="display:none; background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; margin-bottom:1rem;">
+                        <h4 style="margin-bottom:1rem; font-size:0.9rem; color:var(--accent);"><i class="fa-solid fa-graduation-cap"></i> Academic Details</h4>
+                        <div class="form-group"><label>Enrollment / Employee ID</label><input type="text" name="enrollment_id" id="valEnrollInput" placeholder="ID12345"></div>
+                        <div class="form-group"><label>Department</label><input type="text" name="department" placeholder="Computer Science"></div>
+                        <div class="form-group"><label>Course</label><input type="text" name="course" placeholder="B.Tech"></div>
+                        <div class="form-group"><label>Batch/Year</label><input type="text" name="batch" placeholder="2026"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Allowed Floors (e.g. 0,1,2)</label>
+                        <input type="text" name="allowed_floors" required placeholder="0,1,2">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Face Biometric (Upload Photo)</label>
+                        <input type="file" name="face_image" accept="image/*" required style="padding: 0.5rem; font-size:0.9rem;">
+                    </div>
+
+                    <button type="submit" class="btn-primary" style="width: 100%;"><i class="fa-solid fa-cloud-arrow-up"></i> Register User</button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleFields() {
+    const role = document.getElementById('roleSelector').value;
+    const academicBlock = document.getElementById('academicFields');
+    const enrollInput = document.getElementById('valEnrollInput');
+    if(role === 'Faculty' || role === 'Disability' || role === 'Operator') { 
+        academicBlock.style.display = 'block';
+        enrollInput.required = true;
+    } else {
+        academicBlock.style.display = 'none';
+        enrollInput.required = false;
+    }
+}
+// Run once on load
+toggleFields();
+</script>
+{% endblock %}

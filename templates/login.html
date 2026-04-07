@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="login-container">
+    <div class="glass-panel login-box">
+        <div style="text-align: center; margin-bottom: 2.5rem;">
+            <h2 style="font-size: 2.5rem; margin-bottom: 0.5rem; font-weight: 800;">
+                <i class="fas fa-building" style="color: var(--accent);"></i> SmartLift
+            </h2>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Intelligent Multi-Tenant Access Control</p>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-{{ category }}" style="padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center; font-weight: 500;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="form-group">
+                <label style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; display: block; font-weight: 600; text-transform: uppercase;">
+                    <i class="fas fa-envelope"></i> Admin Email
+                </label>
+                <input type="email" name="email" placeholder="admin@institution.edu" required autofocus>
+            </div>
+            
+            <div class="form-group">
+                <label style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; display: block; font-weight: 600; text-transform: uppercase;">
+                    <i class="fas fa-lock"></i> Password
+                </label>
+                <input type="password" name="password" placeholder="••••••••" required>
+            </div>
+            
+            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem; padding: 1rem; font-size: 1rem;">
+                <i class="fas fa-sign-in-alt"></i> Authenticate & Enter
+            </button>
+        </form>
+        
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+            <p style="color: var(--text-dimmed); font-size: 0.85rem; text-align: center; margin-bottom: 1rem;">
+                <i class="fas fa-info-circle"></i> Demo Credentials
+            </p>
+            <div style="background: rgba(93, 136, 187, 0.08); padding: 1rem; border-radius: 8px; font-size: 0.85rem; border: 1px solid var(--border);">
+                <div style="margin-bottom: 0.75rem;">
+                    <strong style="color: var(--accent);">SuperAdmin:</strong>
+                    <br>
+                    <span style="color: var(--text-muted);">founder@smartlift.com / founder123</span>
+                </div>
+                <div>
+                    <strong style="color: var(--uniform-blue);">Tenant Admin:</strong>
+                    <br>
+                    <span style="color: var(--text-muted);">admin@demo.com / admin123</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Additional login page specific styles */
+    .login-box {
+        animation: fadeIn 0.6s ease;
+    }
+    
+    .login-box input {
+        transition: all 0.3s ease;
+    }
+    
+    .login-box input:focus {
+        transform: scale(1.02);
+        box-shadow: 0 0 20px rgba(93, 136, 187, 0.2);
+    }
+</style>
+{% endblock %}

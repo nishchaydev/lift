@@ -1,0 +1,182 @@
+import time
+import datetime
+import random
+from app import app, db
+from models import Tenant, User, Lift, AccessLog, FloorRequest, VisitorPass
+from lift_hardware_controller import HardwareController
+from voice_control_module import AudioEngine
+
+# Use faster vision engine if available
+try:
+    from camera_face_recognition import VisionEngine
+    print("[INFO] Using optimized face recognition engine")
+except ImportError:
+    print("[WARN] Falling back to original vision engine")
+    try:
+        from camera_face_recognition_old import VisionEngine
+    except ImportError:
+        print("[ERROR] No vision engine available!")
+        VisionEngine = None
+
+def get_casual_response(text):
+    if "time" in text: return f"The current time is {datetime.datetime.now().strftime('%I:%M %p')}."
+    if "date" in text or "day" in text: return f"Today is {datetime.datetime.now().strftime('%A, %B %d')}."
+    if "how are you" in text: return "I am functioning perfectly, thank you for asking! How can I help?"
+    if "joke" in text: return random.choice(["Why did the lift break up with the stairs? It said they were always escalating things!"])
+    if "hello" in text or "hi " in text: return "Hello there! Which floor?"
+    return None
+
+def extract_floor_number(text):
+    mapping = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 
+               'ground': 0, 'first': 1, 'second': 2, 'third': 3}
+    for key, val in mapping.items():
+        if key in text: return val
+    for word in text.split():
+        if word.isdigit(): return int(word)
+    return None
+
+def log_event(user_id, target_floor, status, lift_id=1):
+    req = FloorRequest(User_id=user_id, Floor_number=target_floor, Status='Completed' if 'Granted' in status else 'Rejected', Lift_id=lift_id)
+    db.session.add(req)
+    db.session.flush() 
+    log = AccessLog(User_id=user_id, Floor_selection=target_floor, status=status, Request_ID=req.Request_ID)
+    db.session.add(log)
+    db.session.commit()
+
+def log_visitor(visitor_name, target_floor, status, lift_id=1):
+    req = FloorRequest(User_id=None, Floor_number=target_floor, Status='Completed' if 'Granted' in status else 'Rejected', Lift_id=lift_id)
+    db.session.add(req)
+    db.session.flush() 
+    log = AccessLog(User_id=None, Floor_selection=target_floor, status=f"QR Guest [{visitor_name}] - {status}", Request_ID=req.Request_ID)
+    db.session.add(log)
+    db.session.commit()
+
+
+def main():
+    print("=== Booting Smart Lift EDGE OS ===")
+    
+    # =================================================================
+    # PHASE 11 HARDWARE ARCHITECTURE: NODE TETHERING
+    # In a real SaaS deployment, every physical laptop/Raspberry Pi
+    # is deployed to ONE exact college. You define that college here.
+    # Change this integer to 2 to test CDGI, 3 for IIT, etc!
+    # =================================================================
+    LOCAL_EDGE_TENANT_ID = 2 
+    
+    hw = HardwareController(simulate=True)
+    audio = AudioEngine()
+    vision = VisionEngine()
+
+    with app.app_context():
+        tenant = Tenant.query.get(LOCAL_EDGE_TENANT_ID)
+        if not tenant:
+            print(f"[FATAL ERROR] Edge node cannot tether to Tenant #{LOCAL_EDGE_TENANT_ID}. It does not exist in the Database!")
+            return
+            
+        if tenant.subscription_status != 'Active': 
+            print(f"==================================================")
+            print(f"[EDGE NODE SECURED] Boot Aborted by SaaS Business Logic")
+            print(f"Institution: {tenant.name}")
+            print(f"Current Status: [{tenant.subscription_status}]")
+            print(f"Action Required: Please login to the SuperAdmin panel (founder@smartlift.com) and click 'Enable' to restore Edge Node connectivity.")
+            print(f"==================================================")
+            return
+            
+        EDGE_TENANT_ID = tenant.id 
+        EDGE_LIFT_ID = tenant.lifts[0].Lift_id if hasattr(tenant, 'lifts') and tenant.lifts else 1 
+        print(f"-> Node Authorized for: {tenant.name} \n[Phase 4: QR Visitor Engine Activated]")
+        
+        while True:
+            users = User.query.filter_by(tenant_id=EDGE_TENANT_ID).all()
+            
+            # Phase 4 Vision Multi-Modal Auth (QR / FACE)
+            auth_type, identifier, scan_status = vision.scan_for_user(users)
+            
+            if auth_type == "EXIT":
+                print("System Terminated.")
+                break
+                
+            if auth_type == "ERROR":
+                log_event(user_id=None, target_floor=0, status=f"Alert: {scan_status}", lift_id=EDGE_LIFT_ID)
+                audio.speak("Access Attempt Blocked.")
+                continue
+                
+            if auth_type == "QR":
+                # Validate Cryptographic Token constraints
+                qr_pass = VisitorPass.query.filter_by(qr_hash=identifier, tenant_id=EDGE_TENANT_ID, status='Active').first()
+                if not qr_pass:
+                    audio.speak("Unauthorized QR Token Scanned.")
+                    log_visitor("Unknown", 0, "Rejected (Invalid Hash)", EDGE_LIFT_ID)
+                    continue
+                
+                # Validation check on expiry rules
+                if datetime.datetime.utcnow() > qr_pass.valid_until:
+                    qr_pass.status = 'Expired'
+                    db.session.commit()
+                    audio.speak(f"Sorry {qr_pass.visitor_name}, this pass has expired.")
+                    log_visitor(qr_pass.visitor_name, 0, "Rejected (Expired Limits)", EDGE_LIFT_ID)
+                    continue
+                
+                # Parse array mappings correctly
+                floors_arr = [int(f.strip()) for f in str(qr_pass.allowed_floors).split(',')]
+                target_floor = floors_arr[-1] if floors_arr else 0
+                
+                audio.speak(f"Temporary Pass Confirmed for {qr_pass.visitor_name}. Taking you securely to Authorized Floor.")
+                hw.dispatch_lift(target_floor)
+                log_visitor(qr_pass.visitor_name, target_floor, "Granted", EDGE_LIFT_ID)
+                time.sleep(2)
+                continue
+
+            if auth_type == "FACE":
+                user_record = User.query.filter_by(name=identifier, tenant_id=EDGE_TENANT_ID).first()
+                if not user_record: continue
+    
+                # Phase 5: RBAC Time Restrictions
+                if user_record.access_start_time and user_record.access_end_time:
+                    current_time = datetime.datetime.now().time()
+                    if not (user_record.access_start_time <= current_time <= user_record.access_end_time):
+                        audio.speak(f"Access Denied. Your profile is restricted outside of typical working hours.")
+                        log_event(user_record.user_id, 0, "Denied - Out of Hours", EDGE_LIFT_ID)
+                        continue
+    
+                allowed_floors_list = [int(f) for f in str(user_record.allowed_floors).split(',')]
+    
+                audio.speak(f"Welcome {user_record.name}. Which floor would you like to go to?")
+                
+                timeout_strikes = 0
+                while True:
+                    command = audio.listen_for_floor()
+                    if not command:
+                        timeout_strikes += 1
+                        if timeout_strikes >= 2:
+                            audio.speak("I didn't hear a command, resetting system.")
+                            log_event(user_record.user_id, 0, "Audio Timeout Abandoned", EDGE_LIFT_ID)
+                            break 
+                        continue 
+                    
+                    timeout_strikes = 0
+                    casual_reply = get_casual_response(command)
+                    if casual_reply:
+                        audio.speak(casual_reply)
+                        audio.speak("So, which floor would you like?")
+                        continue
+    
+                    target_floor = extract_floor_number(command)
+                    if target_floor is None:
+                        audio.speak("I didn't understand the floor number. Please say something like 'floor two'.")
+                        continue
+    
+                    if target_floor in allowed_floors_list:
+                        audio.speak(f"Access granted. Dispatching lift to floor {target_floor}.")
+                        log_event(user_record.user_id, target_floor, "Granted", EDGE_LIFT_ID)
+                        hw.dispatch_lift(target_floor)
+                        break
+                    else:
+                        audio.speak(f"Access Denied. Your profile role does not permit access to floor {target_floor}.")
+                        log_event(user_record.user_id, target_floor, "Denied - Role Constraint", EDGE_LIFT_ID)
+                        break
+    
+                time.sleep(2)
+
+if __name__ == "__main__":
+    main()

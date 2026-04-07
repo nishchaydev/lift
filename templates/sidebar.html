@@ -1,0 +1,44 @@
+<!-- Phase 10 Mobile Navigation Strip -->
+<div class="mobile-topbar" style="position: sticky; top:0; z-index:900;">
+    <h2><i class="fa-solid fa-elevator" style="color:var(--accent);"></i> SmartLift<span style="color:var(--accent)">.</span></h2>
+    <button onclick="document.getElementById('mobileSidebar').classList.toggle('mobile-open')">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+</div>
+
+<div id="mobileSidebar" class="glass-panel sidebar" style="border-radius: 0; border-top:none; border-bottom:none; border-left:none;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <h2 style="margin-bottom: 3rem; font-weight: 800; display:flex; align-items:center; gap:0.5rem; color:var(--text-main);">
+            <i class="fa-solid fa-elevator" style="color:var(--accent);"></i> SmartLift<span style="color:var(--accent)">.</span>
+        </h2>
+        <button class="mobile-close-btn" onclick="document.getElementById('mobileSidebar').classList.remove('mobile-open')" style="background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="flex: 1;">
+        <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">
+            <i class="fa-solid fa-chart-line"></i> Security Overview
+        </a>
+        <a href="{{ url_for('manage_users') }}" class="nav-link {% if request.path == '/users' %}active{% endif %}">
+            <i class="fa-solid fa-users"></i> Access Management
+        </a>
+        <a href="{{ url_for('manage_visitor_passes') }}" class="nav-link {% if request.path == '/visitor_passes' %}active{% endif %}">
+            <i class="fa-solid fa-qrcode"></i> Visitor Passes
+        </a>
+        <a href="{{ url_for('hardware') }}" class="nav-link {% if request.path == '/hardware' %}active{% endif %}">
+            <i class="fa-solid fa-microchip"></i> Hardware Network
+        </a>
+        <a href="{{ url_for('emergency_dashboard') }}" class="nav-link {% if request.path == '/emergency' %}active{% endif %}" style="color:var(--danger)">
+            <i class="fa-solid fa-triangle-exclamation"></i> Emergency Forensics
+        </a>
+        <a href="{{ url_for('approval_queue') }}" class="nav-link {% if request.path == '/approval_queue' %}active{% endif %}" style="color:#f59e0b">
+            <i class="fa-solid fa-clipboard-check"></i> Approval Queue
+        </a>
+        <a href="{{ url_for('settings') }}" class="nav-link {% if request.path == '/settings' %}active{% endif %}">
+            <i class="fa-solid fa-gear"></i> Administrator Settings
+        </a>
+    </div>
+    <div>
+        <a href="{{ url_for('logout') }}" class="nav-link" style="color: var(--danger);">
+            <i class="fa-solid fa-right-from-bracket"></i> Disconnect Session
+        </a>
+    </div>
+</div>

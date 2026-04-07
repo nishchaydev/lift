@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-layout">
+    {% include 'sidebar.html' %}
+    
+    <div class="main-content" style="padding: 3rem;">
+        <h1 style="margin-bottom: 2rem; font-size: 2.2rem; color: var(--accent);"><i class="fa-solid fa-gear"></i> Administrator Settings</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
+                        <i class="fa-solid fa-check-circle"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <!-- Password Rotation -->
+            <div class="glass-panel" style="border-top: 3px solid var(--danger);">
+                <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-key"></i> Remote Credentials Rotation</h3>
+                <p style="color:var(--text-muted); margin-bottom:1.5rem;">Update the localized access keys for Administrator <strong style="color:var(--accent)">{{ admin.email }}</strong>.</p>
+                <form method="POST">
+                    <div class="form-group">
+                        <label>New Administrative Password</label>
+                        <input type="password" name="new_password" required placeholder="Enter PBKDF2 Master Key" style="font-family: monospace;">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;"><i class="fa-solid fa-arrows-rotate"></i> Rotate Encryption Keys</button>
+                </form>
+            </div>
+            
+            <!-- Context -->
+            <div class="glass-panel" style="border-top: 3px solid var(--accent);">
+                <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-server"></i> Tenant Instance Context</h3>
+                <table style="width:100%; border-collapse: collapse;">
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <td style="padding: 1rem 0; color:var(--text-muted);">Tenant ID</td>
+                        <td style="text-align:right; font-weight:bold;">#{{ tenant.id }}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <td style="padding: 1rem 0; color:var(--text-muted);">Registered Institution</td>
+                        <td style="text-align:right; font-weight:bold;">{{ tenant.name }}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <td style="padding: 1rem 0; color:var(--text-muted);">License Type</td>
+                        <td style="text-align:right;"><span class="badge badge-info">{{ tenant.subscription_type }}</span></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-layout">
+    
+    <!-- SuperAdmin Sidebar -->
+    <div class="glass-panel sidebar" style="border-radius: 0; border-top:none; border-bottom:none; border-left:none;">
+        <h2 style="margin-bottom: 3rem; font-weight: 800; display:flex; align-items:center; gap:0.5rem; color:var(--text-main);">
+            <i class="fa-solid fa-crown" style="color:var(--accent);"></i> SuperAdmin<span style="color:var(--accent)">.</span>
+        </h2>
+        <div style="flex: 1;">
+            <a href="{{ url_for('superadmin_dashboard') }}" class="nav-link active">
+                <i class="fa-solid fa-building-user"></i> Tenants & Billing
+            </a>
+            <a href="#" class="nav-link">
+                <i class="fa-solid fa-server"></i> Server Health
+            </a>
+        </div>
+        <div>
+            <a href="{{ url_for('logout') }}" class="nav-link" style="color: var(--danger);">
+                <i class="fa-solid fa-right-from-bracket"></i> Disconnect
+            </a>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content" style="padding: 3rem;">
+        <h1 style="margin-bottom: 2rem; font-size: 2.2rem;">Global Tenant Management</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
+                        <i class="fa-solid fa-check-circle"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="kpi-grid">
+            <div class="glass-panel kpi-card" style="border-top: 3px solid var(--accent);">
+                <h3>Total B2B Clients</h3>
+                <div class="value">{{ total_tenants }}</div>
+            </div>
+            <div class="glass-panel kpi-card" style="border-top: 3px solid #10b981;">
+                <h3>Active SaaS Clusters</h3>
+                <div class="value" style="color: #10b981;"><i class="fa-solid fa-sitemap"></i> Online</div>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+            
+            <!-- Tenants List -->
+            <div class="glass-panel">
+                <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-buildings"></i> Active Client Hubs</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Institution Name</th>
+                            <th>Sub Plan</th>
+                            <th>Status</th>
+                            <th>Hardware Limit</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in tenants %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ t.name }}</td>
+                            <td style="color: var(--accent);">{{ t.subscription_type }}</td>
+                            <td>
+                                {% if t.subscription_status == 'Active' %}
+                                <span class="badge badge-success">Active</span>
+                                {% else %}
+                                <span class="badge badge-danger">Suspended</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ t.max_lifts }} Lifts</td>
+                            <td>
+                                <a href="{{ url_for('toggle_tenant', id=t.id) }}" class="btn-primary" style="padding: 0.3rem 0.8rem; font-size: 0.8rem; {{ 'background: var(--danger);' if t.subscription_status == 'Active' else '' }} box-shadow:none;">
+                                    {{ 'Suspend' if t.subscription_status == 'Active' else 'Reactivate' }}
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Add Tenant Form -->
+            <div class="glass-panel" style="align-self: start;">
+                <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-plus-circle"></i> Onboard New Client</h3>
+                <form method="POST" action="{{ url_for('add_tenant') }}">
+                    <div class="form-group">
+                        <label>Institution Name</label>
+                        <input type="text" name="name" required placeholder="IIT Delhi">
+                    </div>
+                    <div class="form-group">
+                        <label>Subscription Tier</label>
+                        <select name="subscription_type">
+                            <option value="Basic">Basic ($99/mo)</option>
+                            <option value="Premium">Premium ($299/mo)</option>
+                            <option value="Enterprise">Enterprise ($999/mo)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Max Allowed Lifts</label>
+                        <input type="number" name="max_lifts" required value="5">
+                    </div>
+                    <hr style="border:0; border-top:1px solid var(--border); margin: 1.5rem 0;">
+                    <div class="form-group">
+                        <label>Tenant Admin Email</label>
+                        <input type="email" name="admin_email" required placeholder="admin@iitd.ac.in">
+                    </div>
+                    <div class="form-group">
+                        <label>Tenant Admin Temporary Pass</label>
+                        <input type="password" name="admin_pass" required placeholder="Setup pass">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;"><i class="fa-solid fa-bolt"></i> Deploy Environment</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

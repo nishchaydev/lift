@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-layout">
+    {% include 'sidebar.html' %}
+    
+    <div class="main-content" style="padding: 3rem;">
+        <h1 style="color:var(--danger); margin-bottom: 2rem; font-size: 2.2rem;"><i class="fa-solid fa-triangle-exclamation"></i> Emergency Forensics</h1>
+        
+        <p style="color:var(--text-muted); margin-bottom:2rem; font-size:1.1rem;">This module isolates timeline arrays surrounding physical Panic Button occurrences inside elevator nodes.</p>
+
+        <button onclick="fetch('/api/panic/1', {method:'POST'}).then(r=>window.location.reload())" class="btn-primary" style="background:var(--danger); border:none; margin-bottom:2rem; cursor:pointer; font-weight:bold; font-size:1.1rem;"><i class="fa-solid fa-bell"></i> [SIMULATE HARDWARE PANIC ALARM (NODE 1)]</button>
+        
+        <div style="display:flex; flex-direction:column; gap:2rem;">
+        {% for f in forensics %}
+            <div class="glass-panel" style="border-top: 3px solid var(--danger);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <h3>Panic Alarm Executed at {{ f.event.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') }}</h3>
+                    <span class="badge badge-danger">LIFT NODE #{{ f.event.lift_id }}</span>
+                </div>
+                <p style="color:var(--text-muted); margin-bottom:1rem;"><i class="fa-solid fa-clock"></i> System locked temporal scan bounds (+/- 5 minutes) to securely map all overlapping identities:</p>
+                
+                {% if f.suspects %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Chronological Timestamp</th>
+                            <th>Identified Entity</th>
+                            <th>Predicted Movement</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in f.suspects %}
+                        <tr>
+                            <td style="color:var(--text-muted)">{{ log.timestlap.strftime('%H:%M:%S') }} <span style="font-size:0.8rem">({{ ((log.timestlap - f.event.timestamp).total_seconds() / 60) | round(1) }} mins relative)</span></td>
+                            <td style="color:var(--danger); font-weight:600;"><i class="fa-solid fa-biohazard"></i> {{ log.user.name if log.user else log.status }}</td>
+                            <td><span class="badge badge-info">Floor {{ log.Source_floor }} <i class="fa-solid fa-arrow-right"></i> Floor {{ log.Floor_selection }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="padding:2rem; text-align:center; background:rgba(0,0,0,0.2); border-radius:8px;">
+                    <i class="fa-solid fa-ghost" style="font-size:2rem; color:var(--text-muted); margin-bottom:1rem;"></i>
+                    <p style="color:var(--text-muted)">No traceable identities detected crossing the temporal boundaries of this alarm event.</p>
+                </div>
+                {% endif %}
+            </div>
+        {% else %}
+        <div class="glass-panel" style="text-align:center; padding:4rem;">
+            <i class="fa-solid fa-shield-check" style="color:var(--success); font-size:3rem; margin-bottom:1rem;"></i>
+            <h2 style="color:var(--success)">System Secure</h2>
+            <p style="color:var(--text-muted)">No panic buttons have been triggered. The network is operating functionally.</p>
+        </div>
+        {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

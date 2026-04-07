@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartLift - Intelligent Access Control</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=12.0.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        /* Loading animation */
+        .loader {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Fade in animation */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    {% block content %}{% endblock %}
+    
+    <script>
+        // Auto-fade in elements
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.glass-panel').forEach((el, index) => {
+                el.style.animation = `fadeIn 0.5s ease-in ${index * 0.1}s both`;
+            });
+        });
+    </script>
+</body>
+</html>
