@@ -4,82 +4,140 @@
     
     {% include 'sidebar.html' %}
     
-    <div class="main-content" style="padding: 3rem;">
-        <h1 style="margin-bottom: 2rem; font-size: 2.2rem;">Access Management</h1>
+    <div class="main-content">
+        <style>
+            .user-grid { display: grid; grid-template-columns: 2fr 1.5fr; gap: 1.5rem; }
+            .search-bar { position: relative; margin-bottom: 1.5rem; }
+            .search-bar input { padding-left: 3rem; background: rgba(93,136,187,0.05); border: 2px solid var(--border); transition: all 0.3s; }
+            .search-bar input:focus { border-color: var(--accent); box-shadow: 0 0 20px rgba(93,136,187,0.15); }
+            .search-bar i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+            .user-row { transition: all 0.2s ease; cursor: pointer; }
+            .user-row:hover { background: rgba(93,136,187,0.06); }
+            .user-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); }
+            .user-avatar-placeholder { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--secondary)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 1rem; }
+            .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.3rem; }
+            .btn-edit { background: rgba(93,136,187,0.15); color: var(--accent); }
+            .btn-edit:hover { background: var(--accent); color: white; transform: translateY(-1px); }
+            .btn-delete { background: rgba(248,113,113,0.15); color: var(--danger); }
+            .btn-delete:hover { background: var(--danger); color: white; transform: translateY(-1px); }
+            .btn-view { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+            .btn-view:hover { background: #8b5cf6; color: white; transform: translateY(-1px); }
+            .modal-overlay { display:none; position:fixed; z-index:9999; top:0; left:0; width:100%; height:100%; background:rgba(16,35,54,0.6); backdrop-filter:blur(8px); }
+            .modal-box { background: var(--bg-card); margin: 3% auto; padding: 2.5rem; border-radius: 20px; width: 90%; max-width: 600px; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(16,35,54,0.3); animation: modalSlide 0.3s ease; border: 1px solid var(--border); }
+            @keyframes modalSlide { from { opacity:0; transform:translateY(-30px) scale(0.95); } to { opacity:1; transform:translateY(0) scale(1); } }
+            .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; padding-bottom:1rem; border-bottom:1px solid var(--border); }
+            .modal-close { background:none; border:none; font-size:1.5rem; color:var(--text-muted); cursor:pointer; transition: all 0.2s; padding: 0.3rem; border-radius: 8px; }
+            .modal-close:hover { color:var(--danger); background: rgba(248,113,113,0.1); }
+            .camera-container { position: relative; border-radius: 16px; overflow: hidden; background: #000; aspect-ratio: 4/3; }
+            .camera-container video { width: 100%; height: 100%; object-fit: cover; }
+            .camera-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 240px; border: 3px solid rgba(93,136,187,0.6); border-radius: 50%; pointer-events: none; animation: facePulse 2s infinite; }
+            @keyframes facePulse { 0%,100% { border-color: rgba(93,136,187,0.4); box-shadow: 0 0 20px rgba(93,136,187,0.1); } 50% { border-color: rgba(93,136,187,0.8); box-shadow: 0 0 30px rgba(93,136,187,0.3); } }
+            .camera-btn { padding: 0.75rem 1.5rem; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; }
+            .tab-buttons { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+            .tab-btn { padding: 0.6rem 1.2rem; border: 2px solid var(--border); border-radius: 10px; background: transparent; color: var(--text-muted); font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.85rem; }
+            .tab-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+            .tab-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+            .tab-content { display: none; }
+            .tab-content.active { display: block; }
+            .badge-warning { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+            .user-count { font-size: 0.85rem; color: var(--text-muted); background: rgba(93,136,187,0.1); padding: 0.3rem 0.8rem; border-radius: 20px; }
+            .confirm-box { background: rgba(248,113,113,0.08); border: 2px solid rgba(248,113,113,0.3); border-radius: 12px; padding: 2rem; text-align: center; }
+            @media (max-width: 900px) { .user-grid { grid-template-columns: 1fr; } }
+        </style>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+            <h1 style="font-size: 2.2rem; margin: 0;"><i class="fa-solid fa-users-gear" style="color: var(--accent);"></i> Access Management</h1>
+            <span class="user-count"><i class="fa-solid fa-database"></i> {{ users|length }} registered users</span>
+        </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
-                        <i class="fa-solid fa-check-circle"></i> {{ message }}
+                    <div class="flash-{{ category }}" style="padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+                        <i class="fa-solid fa-{% if category == 'success' %}check-circle{% else %}exclamation-triangle{% endif %}"></i> {{ message }}
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
         
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+        <div class="user-grid">
             
-            <!-- Users List -->
-            <div class="glass-panel">
-                <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-address-book"></i> Active Entities</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Image</th>
-                            <th>Name</th>
-                            <th>Role</th>
-                            <th>Allowed Floors</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for u in users %}
-                        <tr>
-                            <td>
-                                {% if u.Face_encoding %}
-                                <img src="{{ url_for('static', filename=u.Face_encoding.split('static/')[1] if 'static/' in u.Face_encoding else '') }}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);">
-                                {% else %}
-                                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-user"></i></div>
-                                {% endif %}
-                            </td>
-                            <td style="font-weight: 600;">{{ u.name }}</td>
-                            <td>
-                                {% if u.access_type == 'Operator' %}
-                                <span class="badge badge-danger">Operator</span>
-                                {% elif u.access_type == 'Faculty' %}
-                                <span class="badge badge-success">Faculty</span>
-                                {% elif u.access_type == 'Disability' %}
-                                <span class="badge badge-warning">Disability</span>
-                                {% else %}
-                                <span class="badge badge-info">Temporary</span>
-                                {% endif %}
-                            </td>
-                            <td style="color: var(--text-muted);">{{ u.allowed_floors }}</td>
-                            <td>
-                                <button onclick="editUser({{ u.id }})" class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; margin-right: 0.5rem;">
-                                    <i class="fa-solid fa-edit"></i> Edit
-                                </button>
-                                <button onclick="deleteUser({{ u.id }}, '{{ u.name }}')" class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: var(--danger); box-shadow: 0 4px 12px rgba(248, 113, 113, 0.3);">
-                                    <i class="fa-solid fa-trash"></i> Delete
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <!-- Users List Panel -->
+            <div class="glass-panel" style="overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0;"><i class="fa-solid fa-address-book" style="color: var(--accent);"></i> Active Entities</h3>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="search-bar">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="userSearch" placeholder="Search by name, email, role, department..." oninput="filterUsers()" style="width: 100%;">
+                </div>
+
+                <!-- Users Table -->
+                <div style="max-height: 600px; overflow-y: auto;">
+                    <table id="usersTable" style="width: 100%;">
+                        <thead style="position: sticky; top: 0; background: var(--bg-card); z-index: 5;">
+                            <tr>
+                                <th></th>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Floors</th>
+                                <th>Dept</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in users %}
+                            <tr class="user-row" data-name="{{ u.name|lower }}" data-email="{{ (u.email or '')|lower }}" data-role="{{ u.access_type|lower }}" data-dept="{{ (u.department or '')|lower }}">
+                                <td>
+                                    {% if u.Face_encoding %}
+                                    <img src="{{ url_for('static', filename=u.Face_encoding.split('static/')[1] if 'static/' in u.Face_encoding else '') }}" class="user-avatar" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="user-avatar-placeholder" style="display:none;">{{ u.name[0] }}</div>
+                                    {% else %}
+                                    <div class="user-avatar-placeholder">{{ u.name[0] }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div style="font-weight: 600;">{{ u.name }}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ u.email or 'No email' }}</div>
+                                </td>
+                                <td>
+                                    {% if u.access_type == 'Operator' %}
+                                    <span class="badge badge-danger">Operator</span>
+                                    {% elif u.access_type == 'Faculty' %}
+                                    <span class="badge badge-success">Faculty</span>
+                                    {% elif u.access_type == 'Disability' %}
+                                    <span class="badge badge-warning">Disability</span>
+                                    {% else %}
+                                    <span class="badge badge-info">Temporary</span>
+                                    {% endif %}
+                                </td>
+                                <td style="color: var(--text-muted); font-size: 0.85rem;">{{ u.allowed_floors }}</td>
+                                <td style="color: var(--text-muted); font-size: 0.85rem;">{{ u.department or '—' }}</td>
+                                <td style="white-space: nowrap;">
+                                    <button onclick="openViewUser({{ u.user_id }})" class="btn-sm btn-view"><i class="fa-solid fa-eye"></i></button>
+                                    <button onclick="openEditUser({{ u.user_id }})" class="btn-sm btn-edit"><i class="fa-solid fa-pen"></i></button>
+                                    <button onclick="openDeleteUser({{ u.user_id }}, '{{ u.name }}')" class="btn-sm btn-delete"><i class="fa-solid fa-trash"></i></button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Add User Form -->
             <div class="glass-panel" style="align-self: start;">
-                <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-user-plus"></i> Enroll Identity</h3>
-                <form method="POST" enctype="multipart/form-data">
+                <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-user-plus" style="color: var(--accent);"></i> Enroll Identity</h3>
+                <form method="POST" enctype="multipart/form-data" id="enrollForm">
                     <div class="form-group">
                         <label>Full Name</label>
                         <input type="text" name="name" required placeholder="John Doe">
                     </div>
                     
                     <div class="form-group">
-                        <label>Contact Email (Required for Telemetry)</label>
+                        <label>Contact Email</label>
                         <input type="email" name="email" required placeholder="user@university.edu">
                     </div>
                     
@@ -93,8 +151,8 @@
                         </select>
                     </div>
 
-                    <div id="academicFields" style="display:none; background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; margin-bottom:1rem;">
-                        <h4 style="margin-bottom:1rem; font-size:0.9rem; color:var(--accent);"><i class="fa-solid fa-graduation-cap"></i> Academic Details</h4>
+                    <div id="academicFields" style="display:none; background:rgba(93,136,187,0.05); padding:1rem; border-radius:12px; margin-bottom:1rem; border:1px solid var(--border);">
+                        <h4 style="margin-bottom:1rem; font-size:0.85rem; color:var(--accent);"><i class="fa-solid fa-graduation-cap"></i> Academic Details</h4>
                         <div class="form-group"><label>Enrollment / Employee ID</label><input type="text" name="enrollment_id" id="valEnrollInput" placeholder="ID12345"></div>
                         <div class="form-group"><label>Department</label><input type="text" name="department" placeholder="Computer Science"></div>
                         <div class="form-group"><label>Course</label><input type="text" name="course" placeholder="B.Tech"></div>
@@ -107,11 +165,50 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Face Biometric (Upload Photo)</label>
-                        <input type="file" name="face_image" accept="image/*" required style="padding: 0.5rem; font-size:0.9rem;">
+                        <label>Access Hours (Optional)</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                            <input type="time" name="start_time" style="font-size: 0.9rem;">
+                            <input type="time" name="end_time" style="font-size: 0.9rem;">
+                        </div>
                     </div>
 
-                    <button type="submit" class="btn-primary" style="width: 100%;"><i class="fa-solid fa-cloud-arrow-up"></i> Register User</button>
+                    <!-- Face Biometric Section -->
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-camera-retro"></i> Face Biometric</label>
+                        <div class="tab-buttons">
+                            <button type="button" class="tab-btn active" onclick="switchTab('upload')"><i class="fa-solid fa-upload"></i> Upload</button>
+                            <button type="button" class="tab-btn" onclick="switchTab('camera')"><i class="fa-solid fa-video"></i> Camera</button>
+                        </div>
+
+                        <!-- Upload Tab -->
+                        <div class="tab-content active" id="tab-upload">
+                            <input type="file" name="face_image" id="faceFileInput" accept="image/*" style="padding: 1rem; font-size:0.85rem;">
+                        </div>
+
+                        <!-- Camera Tab -->
+                        <div class="tab-content" id="tab-camera">
+                            <div class="camera-container" id="cameraBox" style="display:none;">
+                                <video id="cameraFeed" autoplay playsinline muted></video>
+                                <div class="camera-overlay"></div>
+                            </div>
+                            <canvas id="captureCanvas" style="display:none;"></canvas>
+                            <div id="capturedPreview" style="display:none; margin-top:1rem;">
+                                <img id="capturedImg" style="width:100%; border-radius:12px; border: 2px solid var(--success);">
+                                <p style="text-align:center; color:var(--success); font-weight:600; margin-top:0.5rem;"><i class="fa-solid fa-check-circle"></i> Face Captured</p>
+                            </div>
+                            <input type="hidden" name="camera_image_data" id="cameraImageData">
+                            <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                                <button type="button" class="camera-btn" style="background:var(--accent); color:white; flex:1;" onclick="startCamera()">
+                                    <i class="fa-solid fa-video"></i> Open Camera
+                                </button>
+                                <button type="button" class="camera-btn" id="captureBtn" style="background:var(--success); color:white; flex:1; display:none;" onclick="capturePhoto()">
+                                    <i class="fa-solid fa-camera"></i> Capture
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem; padding: 1rem;"><i class="fa-solid fa-cloud-arrow-up"></i> Register User</button>
                 </form>
             </div>
 
@@ -119,7 +216,278 @@
     </div>
 </div>
 
+<!-- ============================================ -->
+<!-- VIEW USER MODAL -->
+<!-- ============================================ -->
+<div class="modal-overlay" id="viewUserModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 style="margin:0;"><i class="fa-solid fa-user-circle" style="color:var(--accent);"></i> User Profile</h3>
+            <button class="modal-close" onclick="closeModal('viewUserModal')">&times;</button>
+        </div>
+        <div id="viewUserContent" style="text-align:center; padding: 2rem; color:var(--text-muted);">
+            <div class="loader"></div>
+            Loading...
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- EDIT USER MODAL -->
+<!-- ============================================ -->
+<div class="modal-overlay" id="editUserModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 style="margin:0;"><i class="fa-solid fa-user-pen" style="color:var(--accent);"></i> Edit User</h3>
+            <button class="modal-close" onclick="closeModal('editUserModal')">&times;</button>
+        </div>
+        <form id="editUserForm" method="POST">
+            <div id="editUserContent">
+                <div style="text-align:center; padding:2rem; color:var(--text-muted);"><div class="loader"></div>Loading...</div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- DELETE USER MODAL -->
+<!-- ============================================ -->
+<div class="modal-overlay" id="deleteUserModal">
+    <div class="modal-box" style="max-width:450px;">
+        <div class="modal-header">
+            <h3 style="margin:0;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i> Confirm Deletion</h3>
+            <button class="modal-close" onclick="closeModal('deleteUserModal')">&times;</button>
+        </div>
+        <div class="confirm-box">
+            <i class="fa-solid fa-user-xmark" style="font-size: 3rem; color: var(--danger); margin-bottom: 1rem;"></i>
+            <p style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Delete <span id="deleteUserName" style="color:var(--danger);"></span>?</p>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">This will permanently remove their face data, access permissions, and all associated records.</p>
+            <div style="display:flex; gap:1rem; justify-content:center;">
+                <button type="button" class="btn-primary" style="background:var(--text-muted);" onclick="closeModal('deleteUserModal')">Cancel</button>
+                <form id="deleteUserForm" method="POST" style="display:inline;">
+                    <button type="submit" class="btn-primary" style="background:var(--danger); box-shadow:0 4px 12px rgba(248,113,113,0.4);"><i class="fa-solid fa-trash"></i> Delete Permanently</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+// ==============================
+// SEARCH & FILTER
+// ==============================
+function filterUsers() {
+    const term = document.getElementById('userSearch').value.toLowerCase();
+    document.querySelectorAll('#usersTable tbody .user-row').forEach(row => {
+        const name = row.dataset.name || '';
+        const email = row.dataset.email || '';
+        const role = row.dataset.role || '';
+        const dept = row.dataset.dept || '';
+        const match = name.includes(term) || email.includes(term) || role.includes(term) || dept.includes(term);
+        row.style.display = match ? '' : 'none';
+    });
+}
+
+// ==============================
+// TABS: Upload vs Camera
+// ==============================
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector(`#tab-${tab}`).classList.add('active');
+    event.target.closest('.tab-btn') ? event.target.closest('.tab-btn').classList.add('active') : null;
+    
+    if (tab === 'upload') {
+        stopCamera();
+        document.getElementById('faceFileInput').required = true;
+    } else {
+        document.getElementById('faceFileInput').required = false;
+    }
+}
+
+// ==============================
+// CAMERA CAPTURE
+// ==============================
+let cameraStream = null;
+
+function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Camera access is restricted. You must run the site on localhost or over HTTPS (secure connection). Please use the File Upload tab to enroll standard photos.');
+        return;
+    }
+    const cameraBox = document.getElementById('cameraBox');
+    const video = document.getElementById('cameraFeed');
+    const captureBtn = document.getElementById('captureBtn');
+    
+    navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } })
+    .then(stream => {
+        cameraStream = stream;
+        video.srcObject = stream;
+        cameraBox.style.display = 'block';
+        captureBtn.style.display = 'inline-flex';
+        document.getElementById('capturedPreview').style.display = 'none';
+    })
+    .catch(err => {
+        alert('Camera access denied or not available. Please use file upload instead.\n\nError: ' + err.message);
+    });
+}
+
+function capturePhoto() {
+    const video = document.getElementById('cameraFeed');
+    const canvas = document.getElementById('captureCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    
+    const imageData = canvas.toDataURL('image/jpeg', 0.9);
+    document.getElementById('cameraImageData').value = imageData;
+    document.getElementById('capturedImg').src = imageData;
+    document.getElementById('capturedPreview').style.display = 'block';
+    document.getElementById('faceFileInput').required = false;
+    
+    stopCamera();
+}
+
+function stopCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+    const cameraBox = document.getElementById('cameraBox');
+    if (cameraBox) cameraBox.style.display = 'none';
+    const captureBtn = document.getElementById('captureBtn');
+    if (captureBtn) captureBtn.style.display = 'none';
+}
+
+// ==============================
+// MODAL CONTROLS
+// ==============================
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+// Close modal on outside click
+document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+});
+
+// ==============================
+// VIEW USER
+// ==============================
+function openViewUser(userId) {
+    document.getElementById('viewUserModal').style.display = 'block';
+    fetch(`/api/user/${userId}`)
+    .then(r => r.json())
+    .then(u => {
+        document.getElementById('viewUserContent').innerHTML = `
+            <div style="margin-bottom:2rem;">
+                ${u.face_path ? `<img src="/${u.face_path}" style="width:120px; height:120px; border-radius:50%; object-fit:cover; border:4px solid var(--accent); margin-bottom:1rem;" onerror="this.style.display='none'">` : 
+                `<div style="width:120px; height:120px; border-radius:50%; background:linear-gradient(135deg, var(--accent), var(--secondary)); display:inline-flex; align-items:center; justify-content:center; color:white; font-size:3rem; font-weight:800; margin-bottom:1rem;">${u.name[0]}</div>`}
+                <h2 style="margin:0.5rem 0 0.2rem;">${u.name}</h2>
+                <p style="color:var(--text-muted);">${u.email || 'No email'}</p>
+            </div>
+            <div style="text-align:left; display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                <div style="background:rgba(93,136,187,0.05); padding:1rem; border-radius:10px;">
+                    <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">Role</div>
+                    <div style="font-weight:700; margin-top:0.3rem; color:var(--accent);">${u.role}</div>
+                </div>
+                <div style="background:rgba(93,136,187,0.05); padding:1rem; border-radius:10px;">
+                    <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">Floors</div>
+                    <div style="font-weight:700; margin-top:0.3rem;">${u.floors}</div>
+                </div>
+                <div style="background:rgba(93,136,187,0.05); padding:1rem; border-radius:10px;">
+                    <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">Department</div>
+                    <div style="font-weight:700; margin-top:0.3rem;">${u.department || '—'}</div>
+                </div>
+                <div style="background:rgba(93,136,187,0.05); padding:1rem; border-radius:10px;">
+                    <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">Enrollment ID</div>
+                    <div style="font-weight:700; margin-top:0.3rem;">${u.enrollment_id || '—'}</div>
+                </div>
+                <div style="background:rgba(93,136,187,0.05); padding:1rem; border-radius:10px;">
+                    <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">Course</div>
+                    <div style="font-weight:700; margin-top:0.3rem;">${u.course || '—'}</div>
+                </div>
+                <div style="background:rgba(93,136,187,0.05); padding:1rem; border-radius:10px;">
+                    <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">Batch</div>
+                    <div style="font-weight:700; margin-top:0.3rem;">${u.batch || '—'}</div>
+                </div>
+                <div style="background:rgba(93,136,187,0.05); padding:1rem; border-radius:10px;">
+                    <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">Access Start</div>
+                    <div style="font-weight:700; margin-top:0.3rem;">${u.start_time || 'Unrestricted'}</div>
+                </div>
+                <div style="background:rgba(93,136,187,0.05); padding:1rem; border-radius:10px;">
+                    <div style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:1px;">Access End</div>
+                    <div style="font-weight:700; margin-top:0.3rem;">${u.end_time || 'Unrestricted'}</div>
+                </div>
+            </div>
+            <div style="margin-top:1.5rem; display:flex; gap:0.5rem; justify-content:center;">
+                <button onclick="closeModal('viewUserModal'); openEditUser(${u.user_id});" class="btn-primary" style="padding:0.6rem 1.5rem;"><i class="fa-solid fa-pen"></i> Edit</button>
+                <button onclick="closeModal('viewUserModal'); openDeleteUser(${u.user_id}, '${u.name}');" class="btn-primary" style="padding:0.6rem 1.5rem; background:var(--danger);"><i class="fa-solid fa-trash"></i> Delete</button>
+            </div>
+        `;
+    })
+    .catch(() => { document.getElementById('viewUserContent').innerHTML = '<p style="color:var(--danger);">Failed to load user data.</p>'; });
+}
+
+// ==============================
+// EDIT USER
+// ==============================
+function openEditUser(userId) {
+    document.getElementById('editUserModal').style.display = 'block';
+    document.getElementById('editUserForm').action = `/edit_user/${userId}`;
+    
+    fetch(`/api/user/${userId}`)
+    .then(r => r.json())
+    .then(u => {
+        document.getElementById('editUserContent').innerHTML = `
+            <div class="form-group"><label>Full Name</label><input type="text" name="name" value="${u.name}" required></div>
+            <div class="form-group"><label>Email</label><input type="email" name="email" value="${u.email || ''}"></div>
+            <div class="form-group">
+                <label>Role</label>
+                <select name="access_role">
+                    <option value="Operator" ${u.role==='Operator'?'selected':''}>Operator</option>
+                    <option value="Faculty" ${u.role==='Faculty'?'selected':''}>Faculty</option>
+                    <option value="Disability" ${u.role==='Disability'?'selected':''}>Disability Priority</option>
+                    <option value="Temporary" ${u.role==='Temporary'?'selected':''}>Temporary</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Allowed Floors</label><input type="text" name="allowed_floors" value="${u.floors}" required></div>
+            <div class="form-group"><label>Enrollment ID</label><input type="text" name="enrollment_id" value="${u.enrollment_id || ''}"></div>
+            <div class="form-group"><label>Department</label><input type="text" name="department" value="${u.department || ''}"></div>
+            <div class="form-group"><label>Course</label><input type="text" name="course" value="${u.course || ''}"></div>
+            <div class="form-group"><label>Batch</label><input type="text" name="batch" value="${u.batch || ''}"></div>
+            <div class="form-group">
+                <label>Access Hours</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <input type="time" name="start_time" value="${u.start_time || ''}">
+                    <input type="time" name="end_time" value="${u.end_time || ''}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Update Face Photo (Optional)</label>
+                <input type="file" name="face_image" accept="image/*" style="padding:0.5rem;">
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%; margin-top:1rem;"><i class="fa-solid fa-save"></i> Save Changes</button>
+        `;
+        document.getElementById('editUserForm').enctype = 'multipart/form-data';
+    })
+    .catch(() => { document.getElementById('editUserContent').innerHTML = '<p style="color:var(--danger);">Failed to load user data.</p>'; });
+}
+
+// ==============================
+// DELETE USER
+// ==============================
+function openDeleteUser(userId, userName) {
+    document.getElementById('deleteUserModal').style.display = 'block';
+    document.getElementById('deleteUserName').textContent = userName;
+    document.getElementById('deleteUserForm').action = `/delete_user/${userId}`;
+}
+
+// ==============================
+// FORM FIELD TOGGLES
+// ==============================
 function toggleFields() {
     const role = document.getElementById('roleSelector').value;
     const academicBlock = document.getElementById('academicFields');
@@ -132,7 +500,6 @@ function toggleFields() {
         enrollInput.required = false;
     }
 }
-// Run once on load
 toggleFields();
 </script>
 {% endblock %}

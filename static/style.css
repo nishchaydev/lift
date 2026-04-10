@@ -60,6 +60,10 @@ body {
     min-height: 100vh;
 }
 
+.main-content {
+    padding: 2rem 2.5rem;
+}
+
 .sidebar {
     height: 100vh;
     position: sticky;
@@ -270,7 +274,7 @@ tr:hover td { background: rgba(93, 136, 187, 0.05); }
     }
 
     .main-content {
-        padding: 1.5rem;
+        padding: 1rem;
     }
 
     h1 {

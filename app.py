@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from models import db, SuperAdmin, Admin, Tenant, User, Lift, AccessLog, VisitorPass, EmergencyEvent, AccessRequest
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
@@ -224,7 +224,49 @@ def dashboard():
         if hours: peak_hour = f"{Counter(hours).most_common(1)[0][0]}:00"
     except: pass
     
-    return render_template('dashboard.html', tenant=tenant, total_users=len(users), logs=logs, active_lifts=active_lifts, peak_hour=peak_hour, chart_data=chart_data)
+    # ============================================
+    # ADVANCED ANALYTICS: 7-Day Access Trend
+    # ============================================
+    trend_labels = []
+    trend_values = []
+    try:
+        for i in range(6, -1, -1):
+            day = datetime.utcnow().date() - timedelta(days=i)
+            day_name = day.strftime('%a %d')
+            trend_labels.append(day_name)
+            count = AccessLog.query.join(User, AccessLog.User_id == User.user_id, isouter=True).filter(
+                db.or_(User.tenant_id == t_id, AccessLog.status.like('%Guest%')),
+                db.func.date(AccessLog.timestlap) == day
+            ).count()
+            trend_values.append(count)
+    except:
+        trend_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        trend_values = [0, 0, 0, 0, 0, 0, 0]
+
+    # ============================================
+    # ADVANCED ANALYTICS: Floor Usage Distribution
+    # ============================================
+    floor_labels = []
+    floor_values = []
+    try:
+        floor_counts = {}
+        for log in logs:
+            f = log.Floor_selection
+            floor_counts[f] = floor_counts.get(f, 0) + 1
+        for floor_num in sorted(floor_counts.keys()):
+            floor_labels.append(f"Floor {floor_num}")
+            floor_values.append(floor_counts[floor_num])
+        if not floor_labels:
+            floor_labels = ['Floor 0', 'Floor 1', 'Floor 2']
+            floor_values = [0, 0, 0]
+    except:
+        floor_labels = ['Floor 0', 'Floor 1', 'Floor 2']
+        floor_values = [0, 0, 0]
+    
+    return render_template('dashboard.html', tenant=tenant, total_users=len(users), logs=logs, 
+                           active_lifts=active_lifts, peak_hour=peak_hour, chart_data=chart_data,
+                           trend_labels=trend_labels, trend_values=trend_values,
+                           floor_labels=floor_labels, floor_values=floor_values)
 
 @app.route('/export_logs')
 def export_logs():
@@ -256,23 +298,36 @@ def manage_users():
         floors = request.form.get('allowed_floors')
         start_time_str = request.form.get('start_time')
         end_time_str = request.form.get('end_time')
-        email = request.form.get('email')
-        enrollment_id = request.form.get('enrollment_id')
-        department = request.form.get('department')
-        course = request.form.get('course')
-        batch = request.form.get('batch')
+        email = request.form.get('email') or None
+        enrollment_id = request.form.get('enrollment_id') or None
+        department = request.form.get('department') or None
+        course = request.form.get('course') or None
+        batch = request.form.get('batch') or None
         start_time = datetime.strptime(start_time_str, '%H:%M').time() if start_time_str else None
         end_time = datetime.strptime(end_time_str, '%H:%M').time() if end_time_str else None
         file = request.files.get('face_image')
+        camera_data = request.form.get('camera_image_data')  # Base64 from webcam
         
         filepath = ""
         face_vector_cache = ""
-        if file and file.filename != '':
-            # Prefix with tenant ID to prevent overwrites across tenants
+        
+        # Handle camera capture (base64 image from webcam)
+        if camera_data and camera_data.startswith('data:image'):
+            import base64
+            header, data = camera_data.split(',', 1)
+            img_bytes = base64.b64decode(data)
+            filename = f"t{t_id}_{name.replace(' ', '_')}_cam.jpg"
+            filepath = os.path.join('static', 'registered_faces', filename)
+            with open(filepath, 'wb') as f:
+                f.write(img_bytes)
+        elif file and file.filename != '':
+            # Standard file upload
             filename = f"t{t_id}_{name.replace(' ', '_')}.jpg"
             filepath = os.path.join('static', 'registered_faces', filename)
             file.save(filepath)
-            
+        
+        # Extract face vector if we have an image
+        if filepath:
             try:
                 from camera_face_recognition import VisionEngine
                 import json
@@ -282,19 +337,6 @@ def manage_users():
                     face_vector_cache = json.dumps(vec if isinstance(vec, list) else vec.tolist())
                 else:
                     flash("AI warning: No clear face detected in the photo. Please re-upload.", "danger")
-            except ImportError:
-                # Fallback to old camera module if new one not available
-                try:
-                    from camera_face_recognition_old import VisionEngine
-                    import json
-                    v = VisionEngine()
-                    vec = v.extract_vector(filepath)
-                    if vec is not None:
-                        face_vector_cache = json.dumps(vec.tolist())
-                    else:
-                        flash("AI warning: No clear face detected in the photo. Please re-upload.", "danger")
-                except Exception as e:
-                    print(f"Fallback extraction error: {e}")
             except Exception as e:
                 print(f"Extraction Error: {e}")
                 
@@ -312,11 +354,112 @@ def manage_users():
         )
         db.session.add(new_user)
         db.session.commit()
-        flash(f"User {name} enrolled locally for your institution!", "success")
+        faiss_engine.build_index(User.query.all())
+        flash(f"User {name} enrolled successfully and Edge AI updated!", "success")
         return redirect(url_for('manage_users'))
         
     users = User.query.filter_by(tenant_id=t_id).all()
     return render_template('users.html', users=users)
+
+# --------------------------
+# USER API (JSON for modals)
+# --------------------------
+@app.route('/api/user/<int:user_id>')
+def api_get_user(user_id):
+    if 'admin_id' not in session: return {'error': 'Unauthorized'}, 401
+    t_id = session['tenant_id']
+    u = User.query.filter_by(user_id=user_id, tenant_id=t_id).first()
+    if not u: return {'error': 'Not found'}, 404
+    return {
+        'user_id': u.user_id,
+        'name': u.name,
+        'email': u.email or '',
+        'role': u.access_type,
+        'floors': u.allowed_floors,
+        'enrollment_id': u.enrollment_id or '',
+        'department': u.department or '',
+        'course': u.course or '',
+        'batch': u.batch or '',
+        'start_time': u.access_start_time.strftime('%H:%M') if u.access_start_time else '',
+        'end_time': u.access_end_time.strftime('%H:%M') if u.access_end_time else '',
+        'face_path': u.Face_encoding or ''
+    }
+
+# --------------------------
+# EDIT USER
+# --------------------------
+@app.route('/edit_user/<int:user_id>', methods=['POST'])
+def edit_user(user_id):
+    if 'admin_id' not in session: return redirect(url_for('login'))
+    t_id = session['tenant_id']
+    u = User.query.filter_by(user_id=user_id, tenant_id=t_id).first()
+    if not u:
+        flash("User not found.", "danger")
+        return redirect(url_for('manage_users'))
+    
+    u.name = request.form.get('name', u.name)
+    u.email = request.form.get('email', u.email)
+    u.access_type = request.form.get('access_role', u.access_type)
+    u.allowed_floors = request.form.get('allowed_floors', u.allowed_floors)
+    u.enrollment_id = request.form.get('enrollment_id') or None
+    u.department = request.form.get('department') or None
+    u.course = request.form.get('course') or None
+    u.batch = request.form.get('batch') or None
+    
+    start_time_str = request.form.get('start_time')
+    end_time_str = request.form.get('end_time')
+    u.access_start_time = datetime.strptime(start_time_str, '%H:%M').time() if start_time_str else None
+    u.access_end_time = datetime.strptime(end_time_str, '%H:%M').time() if end_time_str else None
+    
+    # Handle face photo update
+    file = request.files.get('face_image')
+    if file and file.filename != '':
+        filename = f"t{t_id}_{u.name.replace(' ', '_')}.jpg"
+        filepath = os.path.join('static', 'registered_faces', filename)
+        file.save(filepath)
+        u.Face_encoding = filepath
+        try:
+            from camera_face_recognition import VisionEngine
+            import json
+            v = VisionEngine()
+            vec = v.extract_vector(filepath)
+            if vec is not None:
+                u.face_vector = json.dumps(vec if isinstance(vec, list) else vec.tolist())
+        except Exception as e:
+            print(f"Face update error: {e}")
+    
+    db.session.commit()
+    faiss_engine.build_index(User.query.all())
+    flash(f"User {u.name} updated successfully and Edge AI resynced!", "success")
+    return redirect(url_for('manage_users'))
+
+# --------------------------
+# DELETE USER
+# --------------------------
+@app.route('/delete_user/<int:user_id>', methods=['POST'])
+def delete_user(user_id):
+    if 'admin_id' not in session: return redirect(url_for('login'))
+    t_id = session['tenant_id']
+    u = User.query.filter_by(user_id=user_id, tenant_id=t_id).first()
+    if not u:
+        flash("User not found.", "danger")
+        return redirect(url_for('manage_users'))
+    
+    user_name = u.name
+    
+    # Delete face image file if exists
+    if u.Face_encoding and os.path.exists(u.Face_encoding):
+        try: os.remove(u.Face_encoding)
+        except: pass
+    
+    # Delete associated access logs
+    AccessLog.query.filter_by(User_id=user_id).delete()
+    
+    # Delete the user
+    db.session.delete(u)
+    db.session.commit()
+    flash(f"User {user_name} and all associated records permanently deleted.", "danger")
+    return redirect(url_for('manage_users'))
 
 @app.route('/visitor_passes', methods=['GET', 'POST'])
 def manage_visitor_passes():
@@ -501,6 +644,115 @@ def approve_request(req_id):
         db.session.commit()
         flash(f"Public request approved for {r.name}. QR code automatically synthesized and routed to Visitor Passes.", "success")
     return redirect(url_for('approval_queue'))
+
+@app.route('/verify')
+def verify_scanner():
+    """ Renders the Edge Node Facial Scanner """
+    users = User.query.all()
+    return render_template('verify_scanner.html', users=users)
+
+# --------------------------
+# FAISS BIOMETRIC API
+# --------------------------
+from faiss_engine import FaissBiometricEngine
+faiss_engine = FaissBiometricEngine(model_name="Facenet")
+faiss_index_built = False
+
+@app.route('/api/faiss_verify', methods=['POST'])
+def api_faiss_verify():
+    global faiss_index_built
+    
+    # Lazy load the FAISS index on first scan (keeps server boot fast)
+    if not faiss_index_built:
+        print("[FAISS] Initializing Vector Index...")
+        with app.app_context():
+            users = User.query.filter(User.Face_encoding != None, User.Face_encoding != '').all()
+            faiss_engine.build_index(users)
+            faiss_index_built = True
+
+    try:
+        data = request.get_json()
+        image_data = data.get('image')
+        
+        import base64
+        import tempfile
+        header, encoded = image_data.split(",", 1)
+        img_bytes = base64.b64decode(encoded)
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+            tmp.write(img_bytes)
+            tmp_path = tmp.name
+
+        import cv2
+        img = cv2.imread(tmp_path)
+        data_qr = None
+        if img is not None:
+            detector = cv2.QRCodeDetector()
+            try:
+                data_qr, bbox, _ = detector.detectAndDecode(img)
+            except Exception as e:
+                print(f"[QR Decode Error] {e}")
+        
+        if data_qr:
+            visitor = VisitorPass.query.filter_by(qr_hash=data_qr).first()
+            if visitor and visitor.status == "Active" and visitor.valid_until > datetime.utcnow():
+                try: floor = int(visitor.allowed_floors.split(',')[0])
+                except: floor = 0
+                log = AccessLog(User_id=None, Floor_selection=floor, status="Granted - Guest QR")
+                db.session.add(log)
+                db.session.commit()
+                
+                print(f"[IoT MQTT] Physical Dispatch Sent: Lift to Floor {visitor.allowed_floors} for Guest: {visitor.visitor_name}")
+                
+                try: os.remove(tmp_path)
+                except: pass
+                
+                return jsonify({
+                    "status": "success",
+                    "user": visitor.visitor_name,
+                    "floor": visitor.allowed_floors,
+                    "role": "Visitor",
+                    "msg": "QR Passed"
+                })
+            else:
+                log = AccessLog(User_id=None, Floor_selection=0, status="Denied - Invalid QR")
+                db.session.add(log)
+                db.session.commit()
+                try: os.remove(tmp_path)
+                except: pass
+                
+                return jsonify({"status": "failed", "message": "Invalid/Expired QR"})
+                
+        user, msg = faiss_engine.verify_subject(tmp_path) # Uses default 0.75 threshold for normalized vectors
+        
+        import os
+        try: os.remove(tmp_path)
+        except: pass
+        
+        if user:
+            try: floor = int(user.allowed_floors.split(',')[0])
+            except: floor = 0
+            log = AccessLog(User_id=user.user_id, Floor_selection=floor, status="Granted")
+            db.session.add(log)
+            db.session.commit()
+            
+            print(f"[IoT MQTT] Physical Dispatch Sent: Lift to Floor {user.allowed_floors} for User: {user.name}")
+            
+            return jsonify({
+                "status": "success", 
+                "user": user.name, 
+                "floor": user.allowed_floors, 
+                "role": user.access_type,
+                "msg": msg
+            })
+        else:
+            log = AccessLog(User_id=None, Floor_selection=0, status=f"Denied")
+            db.session.add(log)
+            db.session.commit()
+            return jsonify({"status": "failed", "message": msg})
+    except Exception as e:
+        print(f"[FAISS ERROR] {e}")
+        return jsonify({"status": "error", "message": str(e)})
 
 @app.route('/logout')
 def logout():

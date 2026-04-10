@@ -3,21 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartLift - Public Access Request</title>
+    <title>SmartLift — Request Lift Access</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: 'Inter', sans-serif; }
+        body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:2rem; }
+        .request-card {
+            width:100%; max-width:560px; padding:2.5rem;
+            background:rgba(255,255,255,0.75); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+            border:1px solid rgba(255,255,255,0.5); border-radius:24px;
+            box-shadow: 0 16px 48px rgba(16,35,54,0.1), inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+        .request-card h2 { font-size:1.6rem; font-weight:800; text-align:center; margin-bottom:0.3rem; }
+        .request-card .subtitle { text-align:center; color:var(--text-muted); font-size:0.85rem; margin-bottom:2rem; }
+        .request-card .form-group label { font-size:0.8rem; font-weight:700; color:var(--text-main); text-transform:uppercase; letter-spacing:0.5px; }
+        .request-card input, .request-card select, .request-card textarea {
+            background:rgba(255,255,255,0.6); border:1.5px solid var(--border); color:var(--text-main);
+            border-radius:12px; transition:border-color 0.2s, box-shadow 0.2s;
+        }
+        .request-card input:focus, .request-card select:focus, .request-card textarea:focus {
+            border-color:var(--accent); box-shadow:0 0 16px rgba(93,136,187,0.12); outline:none;
+        }
+        .academic-section {
+            background:rgba(93,136,187,0.04); border:1px solid rgba(93,136,187,0.15);
+            padding:1.2rem; border-radius:14px; margin-bottom:1rem;
+        }
+        .academic-section h4 { font-size:0.78rem; text-transform:uppercase; letter-spacing:1px; color:var(--accent); margin-bottom:1rem; font-weight:700; }
+        .submit-btn {
+            width:100%; margin-top:1.5rem; padding:1rem; font-size:1rem; font-weight:700;
+            background:linear-gradient(135deg, #5D88BB, #4a7aad); color:white; border:none;
+            border-radius:14px; cursor:pointer; transition:all 0.3s;
+            box-shadow: 0 4px 16px rgba(93,136,187,0.3);
+        }
+        .submit-btn:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(93,136,187,0.4); }
+        .branding { text-align:center; margin-top:1.5rem; font-size:0.75rem; color:var(--text-muted); }
+        .branding span { font-weight:800; color:var(--accent); }
+
+        {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}
+        .flash-msg { background:rgba(16,185,129,0.1); border:1px solid var(--success); color:var(--success); padding:1rem; border-radius:12px; margin-bottom:1.5rem; text-align:center; font-weight:600; }
+        {% endif %}{% endwith %}
     </style>
 </head>
 <body>
-    <div class="glass-panel" style="width: 100%; max-width: 600px; padding: 3rem;">
-        <h2 style="text-align: center; margin-bottom: 2rem; color: var(--accent);"><i class="fa-solid fa-elevator"></i> Gateway Request</h2>
-        <p style="text-align: center; color: var(--text-muted); margin-bottom: 2rem;">Submit a Temporal Lift Access request directly to your respective institution.</p>
+    <div class="request-card">
+        <h2><i class="fa-solid fa-elevator" style="color:var(--accent);"></i> Lift Access Request</h2>
+        <p class="subtitle">Submit a temporal lift access request to your institution's administrator</p>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="flash-msg"><i class="fa-solid fa-check-circle"></i> {{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
         
         <form method="POST">
             <div class="form-group">
-                <label>Institution / Tenant Hub</label>
+                <label>Institution</label>
                 <select name="tenant_id" required>
                     {% for t in tenants %}
                     <option value="{{ t.id }}">{{ t.name }}</option>
@@ -26,7 +68,7 @@
             </div>
             
             <div class="form-group">
-                <label>Role</label>
+                <label>Your Role</label>
                 <select name="role" id="reqRoleSelector" onchange="toggleReqFields()">
                     <option value="Student">Student</option>
                     <option value="Faculty">Faculty</option>
@@ -40,33 +82,36 @@
             </div>
             
             <div class="form-group">
-                <label>Contact Email Verification</label>
-                <input type="email" name="email" required placeholder="identity@domain.edu">
+                <label>Contact Email</label>
+                <input type="email" name="email" required placeholder="you@institution.edu">
             </div>
             
-            <div id="reqAcademicFields" style="background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; margin-bottom:1rem;">
+            <div class="academic-section" id="reqAcademicFields">
+                <h4><i class="fa-solid fa-graduation-cap"></i> Academic Details</h4>
                 <div class="form-group"><label>Enrollment / ID Number</label><input type="text" name="enrollment_id" id="reqEnrollInput"></div>
-                <div class="form-group"><label>Department</label><input type="text" name="department"></div>
+                <div class="form-group"><label>Department</label><input type="text" name="department" placeholder="Computer Science"></div>
             </div>
 
             <div class="form-group">
-                <label>Detailed Justification for Lift Request (e.g. Broken Leg, Delivery)</label>
-                <textarea name="reason" required style="width:100%; background:white; border:1.5px solid var(--border); color:var(--text-main); padding:0.8rem; border-radius:4px; min-height:80px;"></textarea>
+                <label>Reason for Lift Access</label>
+                <textarea name="reason" required style="width:100%; padding:0.8rem; min-height:80px; border-radius:12px;" placeholder="e.g. Fractured leg, heavy equipment transport, disability accommodation..."></textarea>
             </div>
             
             <div style="display:flex; gap:1rem;">
                 <div class="form-group" style="flex:1;">
-                    <label>Duration Required (Hours)</label>
+                    <label>Duration (Hours)</label>
                     <input type="number" name="requested_duration_hours" min="1" max="720" value="24" required>
                 </div>
                 <div class="form-group" style="flex:1;">
-                    <label>Required Floors (e.g. 0,1)</label>
-                    <input type="text" name="floors" value="0,1" required>
+                    <label>Required Floors</label>
+                    <input type="text" name="floors" value="0,1" required placeholder="0,1,2">
                 </div>
             </div>
 
-            <button type="submit" class="btn-primary" style="width: 100%; margin-top:1rem; font-size:1.1rem; padding:1rem;"><i class="fa-solid fa-paper-plane"></i> Transmit Request Payload</button>
+            <button type="submit" class="submit-btn"><i class="fa-solid fa-paper-plane"></i> Submit Request</button>
         </form>
+        
+        <div class="branding">Powered by <span>SmartLift</span> — Intelligent Access Control</div>
     </div>
 
     <script>

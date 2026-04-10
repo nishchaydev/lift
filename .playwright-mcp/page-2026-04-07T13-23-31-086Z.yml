@@ -1,0 +1,31 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - heading " SmartLift" [level=2] [ref=e5]:
+      - generic [ref=e6]: 
+      - text: SmartLift
+    - paragraph [ref=e7]: Intelligent Multi-Tenant Access Control
+  - generic [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: 
+        - text: Admin Email
+      - textbox "admin@institution.edu" [active] [ref=e12]
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]: 
+        - text: Password
+      - textbox "••••••••" [ref=e16]
+    - button " Authenticate & Enter" [ref=e17] [cursor=pointer]:
+      - generic [ref=e18]: 
+      - text: Authenticate & Enter
+  - generic [ref=e19]:
+    - paragraph [ref=e20]:
+      - generic [ref=e21]: 
+      - text: Demo Credentials
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - strong [ref=e24]: "SuperAdmin:"
+        - text: founder@smartlift.com / founder123
+      - generic [ref=e25]:
+        - strong [ref=e26]: "Tenant Admin:"
+        - text: admin@demo.com / admin123

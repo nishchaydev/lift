@@ -1,0 +1,85 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - heading " SuperAdmin ." [level=2] [ref=e4]:
+      - generic [ref=e5]: 
+      - text: SuperAdmin
+      - generic [ref=e6]: .
+    - generic [ref=e7]:
+      - link " Tenants & Billing" [ref=e8] [cursor=pointer]:
+        - /url: /superadmin
+        - generic [ref=e9]: 
+        - text: Tenants & Billing
+      - link " Server Health" [ref=e10] [cursor=pointer]:
+        - /url: "#"
+        - generic [ref=e11]: 
+        - text: Server Health
+    - link " Disconnect" [ref=e13] [cursor=pointer]:
+      - /url: /logout
+      - generic [ref=e14]: 
+      - text: Disconnect
+  - generic [ref=e15]:
+    - heading "Global Tenant Management" [level=1] [ref=e16]
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - heading "Total B2B Clients" [level=3] [ref=e19]
+        - generic [ref=e20]: "2"
+      - generic [ref=e21]:
+        - heading "Active SaaS Clusters" [level=3] [ref=e22]
+        - generic [ref=e23]:
+          - generic [ref=e24]: 
+          - text: Online
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - heading "Active Client Hubs" [level=3] [ref=e27]: Active Client Hubs
+        - table [ref=e28]:
+          - rowgroup [ref=e29]:
+            - row "Institution Name Sub Plan Status Hardware Limit Action" [ref=e30]:
+              - columnheader "Institution Name" [ref=e31]
+              - columnheader "Sub Plan" [ref=e32]
+              - columnheader "Status" [ref=e33]
+              - columnheader "Hardware Limit" [ref=e34]
+              - columnheader "Action" [ref=e35]
+          - rowgroup [ref=e36]:
+            - row "CDGI Premium Active 5 Lifts Suspend" [ref=e37]:
+              - cell "CDGI" [ref=e38]
+              - cell "Premium" [ref=e39]
+              - cell "Active" [ref=e40]
+              - cell "5 Lifts" [ref=e41]
+              - cell "Suspend" [ref=e42]:
+                - link "Suspend" [ref=e43] [cursor=pointer]:
+                  - /url: /superadmin/toggle_tenant/2
+            - row "Demo University Enterprise Suspended 10 Lifts Reactivate" [ref=e44]:
+              - cell "Demo University" [ref=e45]
+              - cell "Enterprise" [ref=e46]
+              - cell "Suspended" [ref=e47]
+              - cell "10 Lifts" [ref=e48]
+              - cell "Reactivate" [ref=e49]:
+                - link "Reactivate" [ref=e50] [cursor=pointer]:
+                  - /url: /superadmin/toggle_tenant/1
+      - generic [ref=e51]:
+        - heading " Onboard New Client" [level=3] [ref=e52]:
+          - generic [ref=e53]: 
+          - text: Onboard New Client
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - generic [ref=e56]: Institution Name
+            - textbox "IIT Delhi" [ref=e57]
+          - generic [ref=e58]:
+            - generic [ref=e59]: Subscription Tier
+            - combobox [ref=e60]:
+              - option "Basic ($99/mo)" [selected]
+              - option "Premium ($299/mo)"
+              - option "Enterprise ($999/mo)"
+          - generic [ref=e61]:
+            - generic [ref=e62]: Max Allowed Lifts
+            - spinbutton [ref=e63]: "5"
+          - separator [ref=e64]
+          - generic [ref=e65]:
+            - generic [ref=e66]: Tenant Admin Email
+            - textbox "admin@iitd.ac.in" [ref=e67]
+          - generic [ref=e68]:
+            - generic [ref=e69]: Tenant Admin Temporary Pass
+            - textbox "Setup pass" [ref=e70]
+          - button " Deploy Environment" [ref=e71] [cursor=pointer]:
+            - generic [ref=e72]: 
+            - text: Deploy Environment
