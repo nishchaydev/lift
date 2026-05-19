@@ -24,12 +24,70 @@
     
     <!-- Main Content -->
     <div class="main-content" style="padding: 3rem;">
+        <style>
+            .tenant-actions { display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap; }
+            .btn-outline {
+                padding: 0.3rem 0.8rem;
+                font-size: 0.8rem;
+                border-radius: 8px;
+                border: 1px solid var(--accent);
+                color: var(--accent);
+                background: transparent;
+                cursor: pointer;
+                font-weight: 600;
+            }
+            .modal-overlay {
+                display: none;
+                position: fixed;
+                z-index: 9999;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(16, 35, 54, 0.62);
+                backdrop-filter: blur(6px);
+            }
+            .modal-box {
+                max-width: 640px;
+                width: calc(100% - 2rem);
+                margin: 3rem auto;
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                padding: 1.8rem;
+                max-height: calc(100vh - 6rem);
+                overflow-y: auto;
+                box-shadow: 0 24px 60px rgba(16, 35, 54, 0.24);
+            }
+            .modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1.2rem;
+            }
+            .modal-close {
+                border: none;
+                background: transparent;
+                color: var(--text-muted);
+                font-size: 1.4rem;
+                cursor: pointer;
+            }
+            .two-col {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.8rem;
+            }
+            @media (max-width: 900px) {
+                .two-col { grid-template-columns: 1fr; }
+            }
+        </style>
+
         <h1 style="margin-bottom: 2rem; font-size: 2.2rem;">Global Tenant Management</h1>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
+                    <div style="background: {{ 'rgba(16, 185, 129, 0.2)' if category == 'success' else 'rgba(248,113,113,0.18)' }}; border: 1px solid {{ 'var(--success)' if category == 'success' else 'var(--danger)' }}; color: {{ 'var(--success)' if category == 'success' else 'var(--danger)' }}; padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
                         <i class="fa-solid fa-check-circle"></i> {{ message }}
                     </div>
                 {% endfor %}
@@ -43,7 +101,11 @@
             </div>
             <div class="glass-panel kpi-card" style="border-top: 3px solid #10b981;">
                 <h3>Active SaaS Clusters</h3>
-                <div class="value" style="color: #10b981;"><i class="fa-solid fa-sitemap"></i> Online</div>
+                <div class="value" style="color: #10b981;">{{ active_tenants }}</div>
+            </div>
+            <div class="glass-panel kpi-card" style="border-top: 3px solid var(--danger);">
+                <h3>Suspended Tenants</h3>
+                <div class="value" style="color: var(--danger);">{{ suspended_tenants }}</div>
             </div>
         </div>
         
@@ -56,16 +118,20 @@
                     <thead>
                         <tr>
                             <th>Institution Name</th>
+                            <th>Tenant Admin</th>
                             <th>Sub Plan</th>
                             <th>Status</th>
+                            <th>Users</th>
+                            <th>Lifts</th>
                             <th>Hardware Limit</th>
-                            <th>Action</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for t in tenants %}
                         <tr>
                             <td style="font-weight: 600;">{{ t.name }}</td>
+                            <td style="font-size:0.84rem; color:var(--text-muted);">{{ t.admins[0].email if t.admins else 'Not configured' }}</td>
                             <td style="color: var(--accent);">{{ t.subscription_type }}</td>
                             <td>
                                 {% if t.subscription_status == 'Active' %}
@@ -74,11 +140,27 @@
                                 <span class="badge badge-danger">Suspended</span>
                                 {% endif %}
                             </td>
+                            <td>{{ tenant_metrics[t.id]['users'] }}</td>
+                            <td>{{ tenant_metrics[t.id]['lifts'] }}</td>
                             <td>{{ t.max_lifts }} Lifts</td>
                             <td>
-                                <a href="{{ url_for('toggle_tenant', id=t.id) }}" class="btn-primary" style="padding: 0.3rem 0.8rem; font-size: 0.8rem; {{ 'background: var(--danger);' if t.subscription_status == 'Active' else '' }} box-shadow:none;">
-                                    {{ 'Suspend' if t.subscription_status == 'Active' else 'Reactivate' }}
-                                </a>
+                                <div class="tenant-actions">
+                                    <button type="button" class="btn-outline" onclick="openTenantEdit({{ t.id }})">
+                                        <i class="fa-solid fa-pen"></i> Edit
+                                    </button>
+                                    <form method="POST" action="{{ url_for('toggle_tenant', id=t.id) }}" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn-primary" style="padding: 0.3rem 0.8rem; font-size: 0.8rem; {{ 'background: var(--danger);' if t.subscription_status == 'Active' else '' }} box-shadow:none; border:none; cursor:pointer;">
+                                            {{ 'Suspend' if t.subscription_status == 'Active' else 'Reactivate' }}
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" style="text-align:center; color:var(--text-muted); padding:2rem;">
+                                No tenants onboarded yet.
                             </td>
                         </tr>
                         {% endfor %}
@@ -90,6 +172,7 @@
             <div class="glass-panel" style="align-self: start;">
                 <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-plus-circle"></i> Onboard New Client</h3>
                 <form method="POST" action="{{ url_for('add_tenant') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group">
                         <label>Institution Name</label>
                         <input type="text" name="name" required placeholder="IIT Delhi">
@@ -121,4 +204,99 @@
         </div>
     </div>
 </div>
+
+<div class="modal-overlay" id="editTenantModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 style="margin:0;"><i class="fa-solid fa-pen-to-square" style="color:var(--accent);"></i> Edit Tenant Customer</h3>
+            <button class="modal-close" onclick="closeTenantModal()">&times;</button>
+        </div>
+        <form method="POST" id="editTenantForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="two-col">
+                <div class="form-group">
+                    <label>Institution Name</label>
+                    <input type="text" name="name" id="editTenantName" required>
+                </div>
+                <div class="form-group">
+                    <label>College/Customer ID</label>
+                    <input type="text" name="clg_id" id="editTenantClgId" placeholder="DU2024">
+                </div>
+                <div class="form-group">
+                    <label>Subscription Tier</label>
+                    <select name="subscription_type" id="editTenantSubType">
+                        <option value="Basic">Basic</option>
+                        <option value="Premium">Premium</option>
+                        <option value="Enterprise">Enterprise</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Subscription Status</label>
+                    <select name="subscription_status" id="editTenantStatus">
+                        <option value="Active">Active</option>
+                        <option value="Suspended">Suspended</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Max Allowed Lifts</label>
+                    <input type="number" min="1" name="max_lifts" id="editTenantMaxLifts" required>
+                </div>
+                <div class="form-group">
+                    <label>Configured Floors</label>
+                    <input type="number" min="1" name="no_floor" id="editTenantNoFloor" required>
+                </div>
+                <div class="form-group">
+                    <label>Tenant Primary Color</label>
+                    <input type="color" name="primary_color" id="editTenantColor" style="height:42px; padding:4px;">
+                </div>
+                <div class="form-group">
+                    <label>Tenant Admin Email</label>
+                    <input type="email" name="admin_email" id="editTenantAdminEmail" placeholder="admin@tenant.com">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Reset Tenant Admin Password (Optional)</label>
+                <input type="password" name="admin_password" id="editTenantAdminPassword" placeholder="Leave blank to keep current password">
+            </div>
+
+            <button type="submit" class="btn-primary" style="width:100%; margin-top:0.6rem;">
+                <i class="fa-solid fa-floppy-disk"></i> Save Tenant Updates
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+function closeTenantModal() {
+    document.getElementById('editTenantModal').style.display = 'none';
+}
+
+function openTenantEdit(tenantId) {
+    fetch(`/superadmin/api/tenant/${tenantId}`)
+        .then(r => r.json())
+        .then(t => {
+            if (t.error) {
+                alert(t.error);
+                return;
+            }
+            document.getElementById('editTenantForm').action = `/superadmin/edit_tenant/${tenantId}`;
+            document.getElementById('editTenantName').value = t.name || '';
+            document.getElementById('editTenantClgId').value = t.clg_id || '';
+            document.getElementById('editTenantSubType').value = t.subscription_type || 'Premium';
+            document.getElementById('editTenantStatus').value = t.subscription_status || 'Active';
+            document.getElementById('editTenantMaxLifts').value = t.max_lifts || 1;
+            document.getElementById('editTenantNoFloor').value = t.no_floor || 5;
+            document.getElementById('editTenantColor').value = t.primary_color || '#3b82f6';
+            document.getElementById('editTenantAdminEmail').value = t.admin_email || '';
+            document.getElementById('editTenantAdminPassword').value = '';
+            document.getElementById('editTenantModal').style.display = 'block';
+        })
+        .catch(() => alert('Failed to load tenant details.'));
+}
+
+document.getElementById('editTenantModal').addEventListener('click', (e) => {
+    if (e.target.id === 'editTenantModal') closeTenantModal();
+});
+</script>
 {% endblock %}

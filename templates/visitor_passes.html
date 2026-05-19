@@ -53,11 +53,17 @@
                             <td>
                                 {% if p.status == 'Active' %}
                                 <span class="badge badge-success"><i class="fa-solid fa-unlock"></i> Active</span>
-                                <a href="{{ url_for('revoke_pass', pass_id=p.id) }}" class="badge badge-warning" style="margin-left: 10px; cursor:pointer; text-decoration:none;"><i class="fa-solid fa-ban"></i> Revoke</a>
-                                <a href="{{ url_for('delete_pass', pass_id=p.id) }}" class="badge badge-danger" style="margin-left: 10px; cursor:pointer; text-decoration:none;"><i class="fa-solid fa-trash"></i> Drop</a>
+                                <form method="POST" action="{{ url_for('revoke_pass', pass_id=p.id) }}" style="display:inline;">
+                                    <button type="submit" class="badge badge-warning" style="margin-left: 10px; cursor:pointer; border:none;"><i class="fa-solid fa-ban"></i> Revoke</button>
+                                </form>
+                                <form method="POST" action="{{ url_for('delete_pass', pass_id=p.id) }}" style="display:inline;">
+                                    <button type="submit" class="badge badge-danger" style="margin-left: 10px; cursor:pointer; border:none;"><i class="fa-solid fa-trash"></i> Drop</button>
+                                </form>
                                 {% else %}
                                 <span class="badge badge-danger"><i class="fa-solid fa-lock"></i> {{ p.status }}</span>
-                                <a href="{{ url_for('delete_pass', pass_id=p.id) }}" class="badge badge-danger" style="margin-left: 10px; cursor:pointer; text-decoration:none;"><i class="fa-solid fa-trash"></i> Drop</a>
+                                <form method="POST" action="{{ url_for('delete_pass', pass_id=p.id) }}" style="display:inline;">
+                                    <button type="submit" class="badge badge-danger" style="margin-left: 10px; cursor:pointer; border:none;"><i class="fa-solid fa-trash"></i> Drop</button>
+                                </form>
                                 {% endif %}
                             </td>
                         </tr>

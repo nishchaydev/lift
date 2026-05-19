@@ -133,12 +133,12 @@
                 <form method="POST" enctype="multipart/form-data" id="enrollForm">
                     <div class="form-group">
                         <label>Full Name</label>
-                        <input type="text" name="name" required placeholder="John Doe">
+                        <input type="text" name="name" required placeholder="Full Name (e.g. Rahul Sharma)">
                     </div>
                     
                     <div class="form-group">
                         <label>Contact Email</label>
-                        <input type="email" name="email" required placeholder="user@university.edu">
+                        <input type="email" name="email" placeholder="user@university.edu">
                     </div>
                     
                     <div class="form-group">
@@ -183,6 +183,7 @@
                         <!-- Upload Tab -->
                         <div class="tab-content active" id="tab-upload">
                             <input type="file" name="face_image" id="faceFileInput" accept="image/*" style="padding: 1rem; font-size:0.85rem;">
+                            <small style="color:var(--text-muted); display:block; margin-top:0.3rem;">Optional — can be added later via Edit</small>
                         </div>
 
                         <!-- Camera Tab -->
@@ -299,9 +300,6 @@ function switchTab(tab) {
     
     if (tab === 'upload') {
         stopCamera();
-        document.getElementById('faceFileInput').required = true;
-    } else {
-        document.getElementById('faceFileInput').required = false;
     }
 }
 
@@ -494,10 +492,8 @@ function toggleFields() {
     const enrollInput = document.getElementById('valEnrollInput');
     if(role === 'Faculty' || role === 'Disability' || role === 'Operator') { 
         academicBlock.style.display = 'block';
-        enrollInput.required = true;
     } else {
         academicBlock.style.display = 'none';
-        enrollInput.required = false;
     }
 }
 toggleFields();

@@ -8,11 +8,14 @@ Werkzeug==3.1.3
 # PRIMARY: InsightFace (ArcFace) - Industry standard, 99.8% accuracy
 insightface==0.7.3
 onnxruntime==1.20.0
+deepface==0.0.99
+faiss-cpu==1.13.2
 
 # LEGACY: face-recognition (dlib) - Backward compatibility during migration
 opencv-python==4.10.0.84
-face-recognition==1.3.0
-dlib==19.24.6
+# Optional local install (requires CMake toolchain on some platforms):
+# face-recognition==1.3.0
+# dlib==19.24.6
 Pillow==11.0.0
 
 # Audio Processing
@@ -22,13 +25,12 @@ PyAudio==0.2.14
 
 # QR Code Generation
 qrcode==8.0
-python-qrcode[pil]==8.0
 
 # Hardware Communication (optional for demo mode)
 pyserial==3.5
 
-# Email Support
-# Uses built-in smtplib, no extra deps needed
+# Email Support (Resend API via mail.emitra.dev)
+# Uses built-in urllib.request, no extra deps needed
 
 # Database
 # SQLite is built-in with Python

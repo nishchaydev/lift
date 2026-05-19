@@ -23,7 +23,7 @@
                     {% for lift in lifts %}
                     <tr>
                         <td style="font-weight: 600;">LIFT-NODE-0{{ lift.Lift_id }}</td>
-                        <td style="color: var(--text-muted);">{{ lift.college.clg_name if lift.college else 'Main Building' }}</td>
+                        <td style="color: var(--text-muted);">{{ lift.tenant.name if lift.tenant else 'Unassigned Tenant' }}</td>
                         <td>
                             {% if lift.status == 'Online' or lift.status == 'Operational' %}
                             <span class="badge badge-success"><i class="fa-solid fa-wifi"></i> Online</span>
@@ -33,7 +33,7 @@
                         </td>
                         <td style="color: var(--success); font-family: monospace;">12ms</td>
                         <td>
-                            <button class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem; background: transparent; border: 1px solid var(--accent); color: var(--accent); box-shadow:none;">Restart Node</button>
+                            <button class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem; background: transparent; border: 1px solid var(--accent); color: var(--accent); box-shadow:none;" title="Simulation only">Restart Node (Sim)</button>
                         </td>
                     </tr>
                     {% else %}

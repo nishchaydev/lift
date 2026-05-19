@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local runtime binding (machine-specific)
+edge_node_config.json
+
+# Local virtual environments
+venv/
+.venv/
+node_modules/
+
+# OS clutter
+.DS_Store
+*.log

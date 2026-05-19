@@ -238,27 +238,80 @@
         const canvas = document.getElementById('captureCanvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-        let isScanning = false;
+        let cameraReady = false;
+        let cameraRetries = 0;
+        const MAX_RETRIES = 3;
 
-        // Start Camera
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' } })
-            .then(stream => {
+        // Detect if we're on HTTP (non-localhost) — camera won't work
+        function checkSecureContext() {
+            if (window.isSecureContext) return true;
+            if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return true;
+            // Redirect to HTTPS automatically
+            instruction.innerHTML = `<span style="color:var(--neon-red)">⚠️ Camera requires HTTPS.</span><br>
+                <a href="${location.href.replace('http:', 'https:')}" 
+                   style="color:var(--neon-blue); text-decoration:underline; pointer-events:auto; position:relative; z-index:100;">
+                   Click here to switch to HTTPS
+                </a>`;
+            statusMain.innerText = "INSECURE CONTEXT";
+            setHudColor('var(--neon-red)');
+            return false;
+        }
+
+        async function initCamera() {
+            if (!checkSecureContext()) return;
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                instruction.innerText = "Camera API unavailable in this browser.";
+                instruction.style.color = "var(--neon-red)";
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 1280, height: 720, facingMode: 'user' } 
+                });
                 video.srcObject = stream;
-                // Once video plays, set canvas dimensions
                 video.onloadedmetadata = () => {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
-                    // Start automatic background scanning!
+                    cameraReady = true;
+                    console.log('[SmartLift] Camera initialized successfully');
                     startAutoScanner();
                 };
-            })
-            .catch(err => {
-                console.error(err);
-                instruction.innerText = "Camera disconnected. (Check Chrome flags)";
-                instruction.style.color = "var(--neon-red)";
-            });
+            } catch (err) {
+                console.error('[SmartLift Camera Error]', err);
+                cameraRetries++;
+                
+                if (err.name === 'NotAllowedError') {
+                    statusMain.innerText = "CAMERA BLOCKED";
+                    instruction.innerHTML = `<span style="color:var(--neon-red)">Camera permission denied.</span><br>
+                        <span style="font-size:0.85rem; opacity:0.7;">Click the 🔒 icon in the address bar → Allow Camera</span>`;
+                } else if (err.name === 'NotFoundError') {
+                    statusMain.innerText = "NO CAMERA";
+                    instruction.innerHTML = `<span style="color:var(--neon-red)">No camera detected on this device.</span>`;
+                } else if (err.name === 'NotReadableError' || err.name === 'AbortError') {
+                    if (cameraRetries < MAX_RETRIES) {
+                        instruction.innerText = `Camera busy. Retrying... (${cameraRetries}/${MAX_RETRIES})`;
+                        setTimeout(initCamera, 2000);
+                        return;
+                    }
+                    statusMain.innerText = "CAMERA BUSY";
+                    instruction.innerHTML = `<span style="color:var(--neon-red)">Camera is in use by another app.</span><br>
+                        <span style="font-size:0.85rem; opacity:0.7;">Close other apps using the camera and refresh.</span>`;
+                } else {
+                    if (cameraRetries < MAX_RETRIES) {
+                        instruction.innerText = `Camera error. Retrying... (${cameraRetries}/${MAX_RETRIES})`;
+                        setTimeout(initCamera, 2000);
+                        return;
+                    }
+                    instruction.innerHTML = `<span style="color:var(--neon-red)">Camera Error: ${err.message}</span>`;
+                }
+                setHudColor('var(--neon-red)');
+            }
         }
+
+        // Start camera initialization
+        initCamera();
 
         function setHudColor(color) {
             document.documentElement.style.setProperty('--hud-color', color);
@@ -274,8 +327,10 @@
             return canvas.toDataURL('image/jpeg', 0.6); 
         }
 
+        let isScanning = false;
+
         async function triggerFaissVerification() {
-            if (isScanning) return;
+            if (isScanning || !cameraReady) return;
             isScanning = true;
 
             // Step 1: Visual Lock-on
@@ -316,9 +371,11 @@
                     laser.style.display = 'none';
                     
                     statusMain.innerText = "ACCESS GRANTED";
-                    instruction.innerHTML = `Identity Verified: <b style="color:var(--neon-green); font-size:1.3rem;">${data.user}</b> <br> <span style="font-size:0.9rem; opacity:0.8;">[FAISS: ${data.msg}]</span>`;
+                    instruction.innerHTML = `Identity Verified: <b style="color:var(--neon-green); font-size:1.3rem;">${data.user}</b> <br> <span style="font-size:0.9rem; opacity:0.8;">${data.msg || 'Redirecting to lift panel...'}</span>`;
 
-                    await sleep(4000);
+                    await sleep(1500);
+                    window.location.href = data.next_url || '/lift_control';
+                    return;
                 } else {
                     // No match or no face
                     targetBox.style.transform = 'scale(0.9)';

@@ -8,7 +8,15 @@
         
         <p style="color:var(--text-muted); margin-bottom:2rem; font-size:1.1rem;">This module isolates timeline arrays surrounding physical Panic Button occurrences inside elevator nodes.</p>
 
-        <button onclick="fetch('/api/panic/1', {method:'POST'}).then(r=>window.location.reload())" class="btn-primary" style="background:var(--danger); border:none; margin-bottom:2rem; cursor:pointer; font-weight:bold; font-size:1.1rem;"><i class="fa-solid fa-bell"></i> [SIMULATE HARDWARE PANIC ALARM (NODE 1)]</button>
+        {% if default_lift_id %}
+        <button onclick="triggerPanic({{ default_lift_id }})" class="btn-primary" style="background:var(--danger); border:none; margin-bottom:2rem; cursor:pointer; font-weight:bold; font-size:1.1rem;">
+            <i class="fa-solid fa-bell"></i> [SIMULATE HARDWARE PANIC ALARM (NODE {{ default_lift_id }})]
+        </button>
+        {% else %}
+        <div style="margin-bottom:2rem; color:var(--warning); font-weight:600;">
+            <i class="fa-solid fa-triangle-exclamation"></i> No lift node found for this tenant.
+        </div>
+        {% endif %}
         
         <div style="display:flex; flex-direction:column; gap:2rem;">
         {% for f in forensics %}
@@ -55,4 +63,10 @@
         </div>
     </div>
 </div>
+<script>
+function triggerPanic(liftId) {
+    fetch(`/api/panic/${liftId}`, { method: 'POST' })
+        .then(() => window.location.reload());
+}
+</script>
 {% endblock %}

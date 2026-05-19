@@ -9,7 +9,7 @@
             :root { --accent: {{ tenant.primary_color }}; }
             
             /* ---- Premium Stat Cards ---- */
-            .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2rem; margin-bottom: 2rem; }
+            .stat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
             .stat-card {
                 position: relative; padding: 1.8rem 1.5rem; border-radius: 20px; overflow: hidden;
                 background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -38,6 +38,8 @@
             .stat-card:nth-child(3) .stat-icon { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05)); color: #f59e0b; }
             .stat-card:nth-child(4)::before { background: linear-gradient(90deg, #10b981, #34d399); }
             .stat-card:nth-child(4) .stat-icon { background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05)); color: #10b981; }
+            .stat-card:nth-child(5)::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+            .stat-card:nth-child(5) .stat-icon { background: linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05)); color: #ef4444; }
 
             .stat-card .bg-glow {
                 position: absolute; top: -30px; right: -30px; width: 120px; height: 120px;
@@ -47,6 +49,7 @@
             .stat-card:nth-child(2) .bg-glow { background: #8b5cf6; }
             .stat-card:nth-child(3) .bg-glow { background: #f59e0b; }
             .stat-card:nth-child(4) .bg-glow { background: #10b981; }
+            .stat-card:nth-child(5) .bg-glow { background: #ef4444; }
             
             /* ---- Charts Grid ---- */
             .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-bottom: 1.2rem; }
@@ -74,6 +77,7 @@
             .log-panel { background: rgba(255,255,255,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.5); border-radius: 20px; padding: 1.8rem; box-shadow: 0 4px 24px rgba(16,35,54,0.06); }
             .log-panel th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 700; }
             
+            @media (max-width: 1300px) { .stat-grid { grid-template-columns: repeat(3, 1fr); } }
             @media (max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } .charts-grid { grid-template-columns: 1fr; } }
             @media (max-width: 600px) { .stat-grid { grid-template-columns: 1fr; } }
         </style>
@@ -89,9 +93,24 @@
             </div>
             <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
                 <form method="GET" style="display:flex; gap:0.4rem; background:rgba(255,255,255,0.6); padding:0.3rem; border-radius:12px; border:1px solid var(--border); backdrop-filter:blur(10px);">
-                    <input type="date" name="date" style="background:transparent; border:none; color:var(--text-main); padding:0.4rem 0.6rem; outline:none; font-size:0.85rem;" value="{{ request.args.get('date', '') }}">
+                    <input type="date" name="start_date" style="background:transparent; border:none; color:var(--text-main); padding:0.4rem 0.6rem; outline:none; font-size:0.85rem;" value="{{ start_date }}">
+                    <input type="date" name="end_date" style="background:transparent; border:none; color:var(--text-main); padding:0.4rem 0.6rem; outline:none; font-size:0.85rem;" value="{{ end_date }}">
+                    <select name="status" style="background:transparent; border:none; color:var(--text-main); padding:0.4rem 0.4rem; outline:none; font-size:0.8rem;">
+                        <option value="all" {{ 'selected' if status_filter == 'all' else '' }}>All Status</option>
+                        <option value="granted" {{ 'selected' if status_filter == 'granted' else '' }}>Granted</option>
+                        <option value="denied" {{ 'selected' if status_filter == 'denied' else '' }}>Denied</option>
+                        <option value="alerts" {{ 'selected' if status_filter == 'alerts' else '' }}>Alerts</option>
+                    </select>
+                    <select name="role" style="background:transparent; border:none; color:var(--text-main); padding:0.4rem 0.4rem; outline:none; font-size:0.8rem;">
+                        <option value="all" {{ 'selected' if role_filter == 'all' else '' }}>All Roles</option>
+                        <option value="Operator" {{ 'selected' if role_filter == 'Operator' else '' }}>Operator</option>
+                        <option value="Faculty" {{ 'selected' if role_filter == 'Faculty' else '' }}>Faculty</option>
+                        <option value="Disability" {{ 'selected' if role_filter == 'Disability' else '' }}>Disability</option>
+                        <option value="Temporary" {{ 'selected' if role_filter == 'Temporary' else '' }}>Temporary</option>
+                        <option value="Guests" {{ 'selected' if role_filter == 'Guests' else '' }}>Guests</option>
+                    </select>
                     <button type="submit" class="btn-primary" style="padding:0.4rem 0.8rem; font-size:0.8rem;"><i class="fa-solid fa-filter"></i></button>
-                    {% if request.args.get('date') %}
+                    {% if start_date or end_date or status_filter != 'all' or role_filter != 'all' %}
                     <a href="{{ url_for('dashboard') }}" style="padding:0.4rem 0.8rem; color:var(--danger); display:flex; align-items:center;"><i class="fa-solid fa-xmark"></i></a>
                     {% endif %}
                 </form>
@@ -129,6 +148,13 @@
                 <div class="stat-value" style="color:#10b981;">{{ active_lifts }}</div>
                 <span class="stat-sub" style="background:rgba(16,185,129,0.1); color:#10b981;"><span class="sys-dot online" style="width:7px;height:7px;"></span> Online</span>
             </div>
+            <div class="stat-card">
+                <div class="bg-glow"></div>
+                <div class="stat-icon"><i class="fa-solid fa-shield-exclamation"></i></div>
+                <div class="stat-label">Denied Attempts</div>
+                <div class="stat-value" style="color:#ef4444;">{{ denied_count }}</div>
+                <span class="stat-sub" style="background:rgba(239,68,68,0.1); color:#ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Security Events</span>
+            </div>
         </div>
 
         <!-- Charts Row 1 -->
@@ -150,39 +176,37 @@
                 <div style="height:240px;"><canvas id="floorChart"></canvas></div>
             </div>
             <div class="chart-panel">
-                <h3><i class="fa-solid fa-satellite-dish" style="color:var(--warning);"></i> System Telemetry</h3>
+                <h3><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i> Alerts & Forensics</h3>
                 <div style="display:flex; flex-direction:column; gap:0.7rem;">
                     <div class="sys-item">
-                        <span class="sys-dot online"></span>
+                        <span class="sys-dot {{ 'warn' if unresolved_panic_count > 0 else 'online' }}"></span>
                         <div style="flex:1;">
-                            <div style="font-weight:700; font-size:0.9rem;">SmartLift Core</div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">Main Engine Active</div>
+                            <div style="font-weight:700; font-size:0.9rem;">Unresolved Panic Events</div>
+                            <div style="font-size:0.75rem; color:var(--text-muted);">{{ unresolved_panic_count }} active alarms</div>
                         </div>
-                        <i class="fa-solid fa-server" style="color:var(--text-muted); opacity:0.4;"></i>
+                        <a href="{{ url_for('emergency_dashboard') }}" style="font-size:0.75rem; color:var(--accent); text-decoration:none; font-weight:700;">View</a>
                     </div>
-                    <div class="sys-item">
-                        <span class="sys-dot online"></span>
-                        <div style="flex:1;">
-                            <div style="font-weight:700; font-size:0.9rem;">AI Vision Engine</div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">Face + QR Recognition</div>
+                    <div style="padding:0.9rem 1rem; border-radius:12px; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.15);">
+                        <div style="font-size:0.78rem; font-weight:700; margin-bottom:0.5rem; color:var(--danger);"><i class="fa-solid fa-circle-exclamation"></i> Top Denial Reasons</div>
+                        {% for reason, count in top_denial_reasons %}
+                        <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:0.25rem;">
+                            <span style="color:var(--text-main);">{{ reason }}</span>
+                            <strong style="color:var(--danger);">{{ count }}</strong>
                         </div>
-                        <i class="fa-solid fa-brain" style="color:var(--text-muted); opacity:0.4;"></i>
+                        {% else %}
+                        <div style="font-size:0.8rem; color:var(--text-muted);">No denial events in the current filter range.</div>
+                        {% endfor %}
                     </div>
-                    <div class="sys-item">
-                        <span class="sys-dot online"></span>
-                        <div style="flex:1;">
-                            <div style="font-weight:700; font-size:0.9rem;">Edge Nodes</div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">{{ active_lifts }} Hardware Connected</div>
+                    <div style="padding:0.9rem 1rem; border-radius:12px; background:rgba(93,136,187,0.06); border:1px solid rgba(93,136,187,0.16);">
+                        <div style="font-size:0.78rem; font-weight:700; margin-bottom:0.5rem; color:var(--accent);"><i class="fa-solid fa-bell"></i> Latest Panic Timeline</div>
+                        {% for ev in latest_panic_events %}
+                        <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:0.25rem;">
+                            <span style="color:var(--text-main);">Lift #{{ ev.lift_id }}</span>
+                            <span style="color:var(--text-muted);">{{ ev.timestamp.strftime('%b %d %H:%M') }}</span>
                         </div>
-                        <i class="fa-solid fa-microchip" style="color:var(--text-muted); opacity:0.4;"></i>
-                    </div>
-                    <div class="sys-item">
-                        <span class="sys-dot online"></span>
-                        <div style="flex:1;">
-                            <div style="font-weight:700; font-size:0.9rem;">Security Layer</div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">Liveness + Anti-Spoof</div>
-                        </div>
-                        <i class="fa-solid fa-shield-halved" style="color:var(--text-muted); opacity:0.4;"></i>
+                        {% else %}
+                        <div style="font-size:0.8rem; color:var(--text-muted);">No panic events logged.</div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -192,7 +216,7 @@
         <div class="log-panel" style="margin-top:1.2rem;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem;">
                 <h3 style="margin:0; font-size:0.95rem; font-weight:700;"><i class="fa-solid fa-stream" style="color:var(--accent);"></i> Access Stream</h3>
-                <span style="font-size:0.78rem; color:var(--text-muted); background:rgba(93,136,187,0.08); padding:0.3rem 0.7rem; border-radius:20px; font-weight:600;">{{ logs|length }} events</span>
+                <span style="font-size:0.78rem; color:var(--text-muted); background:rgba(93,136,187,0.08); padding:0.3rem 0.7rem; border-radius:20px; font-weight:600;">{{ logs|length }} events &middot; auto refresh 15s</span>
             </div>
             <div style="max-height:420px; overflow-y:auto;">
                 <table style="width:100%;">
@@ -263,5 +287,24 @@ if(fCtx) {
             scales: { x:{grid:{display:false},ticks:{color:'#A1A8B2',font:{size:11,weight:'600',family:'Plus Jakarta Sans'}}}, y:{grid:{color:'rgba(161,168,178,0.12)'},ticks:{color:'#A1A8B2'},beginAtZero:true} } }
     });
 }
+
+setInterval(() => {
+    fetch(window.location.href)
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            const newStats = doc.querySelector('.stat-grid');
+            if(newStats) document.querySelector('.stat-grid').innerHTML = newStats.innerHTML;
+            
+            const newTable = doc.querySelector('.log-panel tbody');
+            if(newTable) document.querySelector('.log-panel tbody').innerHTML = newTable.innerHTML;
+            
+            const newAlerts = doc.querySelector('.charts-grid:nth-of-type(2) .chart-panel:nth-of-type(2) > div');
+            if(newAlerts) document.querySelector('.charts-grid:nth-of-type(2) .chart-panel:nth-of-type(2) > div').innerHTML = newAlerts.innerHTML;
+        })
+        .catch(err => console.error('Dashboard refresh failed:', err));
+}, 15000);
 </script>
 {% endblock %}

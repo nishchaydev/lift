@@ -1,14 +1,16 @@
 import time
 import datetime
 import random
+import os
+import json
 from app import app, db
-from models import Tenant, User, Lift, AccessLog, FloorRequest, VisitorPass
-from lift_hardware_controller import HardwareController
-from voice_control_module import AudioEngine
+from software.models import Tenant, User, Lift, AccessLog, FloorRequest, VisitorPass
+from hardware.lift_hardware_controller import HardwareController
+from hardware.voice_control_module import AudioEngine
 
 # Use faster vision engine if available
 try:
-    from camera_face_recognition import VisionEngine
+    from hardware.camera_face_recognition import VisionEngine
     print("[INFO] Using optimized face recognition engine")
 except ImportError:
     print("[WARN] Falling back to original vision engine")
@@ -52,12 +54,22 @@ def log_visitor(visitor_name, target_floor, status, lift_id=1):
     db.session.commit()
 
 
+def load_local_edge_tenant_id(config_file):
+    if not os.path.exists(config_file):
+        return None
+    try:
+        with open(config_file, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        tenant_id = config.get("tenant_id")
+        return int(tenant_id) if tenant_id is not None else None
+    except Exception as err:
+        print(f"[EDGE CONFIG] Failed to read {config_file}: {err}")
+        return None
+
+
 def main():
     print("=== Booting Smart Lift EDGE OS ===")
-    
-    import os
-    import json
-    
+
     CONFIG_FILE = "edge_node_config.json"
     
     # =================================================================
@@ -65,11 +77,8 @@ def main():
     # On a brand new laptop/machine, this will prompt the installer
     # for the Tenant ID and save it permanently!
     # =================================================================
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            config = json.load(f)
-            LOCAL_EDGE_TENANT_ID = config.get("tenant_id")
-    else:
+    LOCAL_EDGE_TENANT_ID = load_local_edge_tenant_id(CONFIG_FILE)
+    if LOCAL_EDGE_TENANT_ID is None:
         print("\n==================================================")
         print(" 🛠️ SMARTLIFT EDGE NODE: FIRST-TIME SETUP 🛠️")
         print("==================================================")
@@ -85,7 +94,7 @@ def main():
             except ValueError:
                 print("Invalid input. Please enter a valid numerical ID.")
                 
-        with open(CONFIG_FILE, "w") as f:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump({"tenant_id": LOCAL_EDGE_TENANT_ID}, f)
         print("\n[SUCCESS] Hardware secure tether generated! Booting Node...\n")
     
@@ -115,7 +124,30 @@ def main():
         EDGE_LIFT_ID = tenant.lifts[0].Lift_id if hasattr(tenant, 'lifts') and tenant.lifts else 1 
         print(f"-> Node Authorized for: {tenant.name} \n[Phase 4: QR Visitor Engine Activated]")
         
+        last_config_mtime = 0
+        if os.path.exists(CONFIG_FILE):
+            last_config_mtime = os.path.getmtime(CONFIG_FILE)
+            
         while True:
+            # Hot-sync tenant binding from local web login updates (edge_node_config.json).
+            current_mtime = 0
+            if os.path.exists(CONFIG_FILE):
+                current_mtime = os.path.getmtime(CONFIG_FILE)
+                
+            if current_mtime > last_config_mtime:
+                last_config_mtime = current_mtime
+                requested_tenant_id = load_local_edge_tenant_id(CONFIG_FILE)
+                if requested_tenant_id and requested_tenant_id != EDGE_TENANT_ID:
+                    requested_tenant = Tenant.query.get(requested_tenant_id)
+                    if not requested_tenant:
+                        print(f"[EDGE SYNC] Requested tenant #{requested_tenant_id} not found. Continuing with tenant #{EDGE_TENANT_ID}.")
+                    elif requested_tenant.subscription_status != 'Active':
+                        print(f"[EDGE SYNC] Requested tenant '{requested_tenant.name}' is {requested_tenant.subscription_status}. Continuing with tenant #{EDGE_TENANT_ID}.")
+                    else:
+                        EDGE_TENANT_ID = requested_tenant.id
+                        EDGE_LIFT_ID = requested_tenant.lifts[0].Lift_id if requested_tenant.lifts else EDGE_LIFT_ID
+                        print(f"[EDGE SYNC] Tenant switched to: {requested_tenant.name} (#{EDGE_TENANT_ID})")
+
             users = User.query.filter_by(tenant_id=EDGE_TENANT_ID).all()
             
             # Phase 4 Vision Multi-Modal Auth (QR / FACE)
@@ -126,6 +158,17 @@ def main():
                 break
                 
             if auth_type == "ERROR":
+                transient_errors = {
+                    "No face data configured.",
+                    "No camera available",
+                    "OpenCV camera backend unavailable",
+                    "No face recognition available",
+                    "Face engine unavailable",
+                }
+                if scan_status in transient_errors:
+                    print(f"[EDGE WAIT] {scan_status}")
+                    time.sleep(1)
+                    continue
                 log_event(user_id=None, target_floor=0, status=f"Alert: {scan_status}", lift_id=EDGE_LIFT_ID)
                 audio.speak("Access Attempt Blocked.")
                 continue

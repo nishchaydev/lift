@@ -27,7 +27,7 @@
                 background: rgba(255,255,255,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.5);
                 border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;
                 box-shadow: 0 4px 16px rgba(16,35,54,0.05);
-                display: grid; grid-template-columns: 2fr 2fr 1fr 1fr; gap: 1.5rem; align-items: center;
+                display: grid; grid-template-columns: 2fr 2fr 1fr 1.4fr; gap: 1.5rem; align-items: center;
                 transition: all 0.2s;
             }
             .req-card:hover { box-shadow: 0 8px 24px rgba(16,35,54,0.08); transform: translateY(-2px); }
@@ -87,10 +87,18 @@
                     <span class="badge badge-info" style="font-size:0.8rem;">Floors: {{ r.floors }}</span>
                     <div style="font-size:0.75rem; margin-top:0.4rem; color:var(--text-muted);">Duration: {{ r.requested_duration_hours }}h</div>
                 </div>
-                <div style="text-align:right;">
-                    <a href="{{ url_for('approve_request', req_id=r.id) }}" class="btn-primary" style="background:var(--success); border:none; padding:0.6rem 1.2rem; font-size:0.85rem; display:inline-flex; align-items:center; gap:0.4rem; border-radius:10px;">
-                        <i class="fa-solid fa-check"></i> Approve
-                    </a>
+                <div>
+                    <form method="POST" action="{{ url_for('review_request', req_id=r.id) }}" style="display:flex; flex-direction:column; gap:0.5rem;">
+                        <textarea name="admin_note" placeholder="Optional audit note..." style="width:100%; min-height:62px; border:1px solid var(--border); border-radius:10px; padding:0.55rem; font-size:0.8rem; background:rgba(255,255,255,0.8); color:var(--text-main);"></textarea>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button type="submit" name="action" value="approve" class="btn-primary" style="flex:1; background:var(--success); border:none; padding:0.55rem 0.8rem; font-size:0.82rem; display:inline-flex; align-items:center; justify-content:center; gap:0.35rem; border-radius:10px;">
+                                <i class="fa-solid fa-check"></i> Approve
+                            </button>
+                            <button type="submit" name="action" value="reject" class="btn-primary" style="flex:1; background:var(--danger); border:none; padding:0.55rem 0.8rem; font-size:0.82rem; display:inline-flex; align-items:center; justify-content:center; gap:0.35rem; border-radius:10px;">
+                                <i class="fa-solid fa-xmark"></i> Reject
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
             {% endfor %}
@@ -101,6 +109,29 @@
             <p style="color:var(--text-muted); font-size:0.85rem; margin:0.5rem 0 0;">Share the public link above to start receiving lift access applications</p>
         </div>
         {% endif %}
+
+        <!-- Recent Decisions -->
+        <div style="margin-top:2rem;">
+            <h3 style="font-size:0.95rem; font-weight:700; margin-bottom:0.8rem;"><i class="fa-solid fa-history" style="color:var(--accent);"></i> Recent Decisions</h3>
+            <div style="display:flex; flex-direction:column; gap:0.6rem;">
+                {% for rr in reviewed_reqs %}
+                <div style="background:rgba(255,255,255,0.55); border:1px solid var(--border); border-radius:12px; padding:0.9rem 1rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+                    <div>
+                        <strong>{{ rr.name }}</strong>
+                        <span style="color:var(--text-muted); font-size:0.82rem;">&middot; {{ rr.role }} &middot; {{ rr.created_at.strftime('%b %d, %H:%M') }}</span>
+                        {% if rr.admin_decision_note %}
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;"><i class="fa-solid fa-note-sticky"></i> {{ rr.admin_decision_note }}</div>
+                        {% endif %}
+                    </div>
+                    <span class="badge {{ 'badge-success' if rr.status == 'Approved' else 'badge-danger' }}">
+                        {{ rr.status }}
+                    </span>
+                </div>
+                {% else %}
+                <div style="font-size:0.82rem; color:var(--text-muted);">No approved/rejected decisions yet.</div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 </div>
 

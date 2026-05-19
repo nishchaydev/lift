@@ -132,4 +132,7 @@ class AccessRequest(db.Model):
     requested_duration_hours = db.Column(db.Integer, default=24)
     floors = db.Column(db.String(50), default='0')
     status = db.Column(db.String(50), default='Pending') # Pending, Approved, Rejected
+    admin_decision_note = db.Column(db.Text, nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    reviewed_by_admin_id = db.Column(db.Integer, db.ForeignKey('admin.admin_id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
