@@ -54,14 +54,17 @@
                                 {% if p.status == 'Active' %}
                                 <span class="badge badge-success"><i class="fa-solid fa-unlock"></i> Active</span>
                                 <form method="POST" action="{{ url_for('revoke_pass', pass_id=p.id) }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <button type="submit" class="badge badge-warning" style="margin-left: 10px; cursor:pointer; border:none;"><i class="fa-solid fa-ban"></i> Revoke</button>
                                 </form>
                                 <form method="POST" action="{{ url_for('delete_pass', pass_id=p.id) }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <button type="submit" class="badge badge-danger" style="margin-left: 10px; cursor:pointer; border:none;"><i class="fa-solid fa-trash"></i> Drop</button>
                                 </form>
                                 {% else %}
                                 <span class="badge badge-danger"><i class="fa-solid fa-lock"></i> {{ p.status }}</span>
                                 <form method="POST" action="{{ url_for('delete_pass', pass_id=p.id) }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <button type="submit" class="badge badge-danger" style="margin-left: 10px; cursor:pointer; border:none;"><i class="fa-solid fa-trash"></i> Drop</button>
                                 </form>
                                 {% endif %}
@@ -76,6 +79,7 @@
             <div class="glass-panel" style="align-self: start;">
                 <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-qrcode"></i> Generate Custom Token</h3>
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="form-group">
                         <label>Role Context</label>
                         <select name="role" id="qrRoleSelector" onchange="toggleQRFields()">

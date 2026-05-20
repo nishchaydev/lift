@@ -89,6 +89,7 @@
                 </div>
                 <div>
                     <form method="POST" action="{{ url_for('review_request', req_id=r.id) }}" style="display:flex; flex-direction:column; gap:0.5rem;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <textarea name="admin_note" placeholder="Optional audit note..." style="width:100%; min-height:62px; border:1px solid var(--border); border-radius:10px; padding:0.55rem; font-size:0.8rem; background:rgba(255,255,255,0.8); color:var(--text-main);"></textarea>
                         <div style="display:flex; gap:0.5rem;">
                             <button type="submit" name="action" value="approve" class="btn-primary" style="flex:1; background:var(--success); border:none; padding:0.55rem 0.8rem; font-size:0.82rem; display:inline-flex; align-items:center; justify-content:center; gap:0.35rem; border-radius:10px;">

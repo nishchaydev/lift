@@ -58,6 +58,7 @@
         {% endwith %}
         
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="form-group">
                 <label>Institution</label>
                 <select name="tenant_id" required>

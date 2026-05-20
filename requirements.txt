@@ -37,3 +37,4 @@ pyserial==3.5
 
 # Additional utilities
 numpy==2.2.5
+python-dotenv==1.0.1

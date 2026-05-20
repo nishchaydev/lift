@@ -12,6 +12,9 @@ from collections import Counter
 from sqlalchemy import text
 import PIL.Image as PIL_Image
 from PIL import ImageDraw
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def synthesize_custom_qr(qr_hash, name, role, valid_until, ID=""):
     import qrcode
@@ -137,6 +140,34 @@ def send_welcome_email(recipient_email, recipient_name, role, allowed_floors, te
     return _resend_send(recipient_email, f"Welcome to SmartLift — {tenant_name}", html, attachment_path=qr_path)
 
 
+def send_update_email(recipient_email, recipient_name, role, allowed_floors, tenant_name):
+    """Send an update email when user details are changed."""
+    if not recipient_email:
+        return False
+
+    html = f"""
+    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:auto;background:#0f172a;color:#e2e8f0;border-radius:12px;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#3b82f6,#8b5cf6);padding:32px 24px;text-align:center;">
+        <h1 style="margin:0;font-size:28px;color:#fff;">🏢 SmartLift</h1>
+        <p style="margin:8px 0 0;font-size:14px;color:#e0e7ff;">Access Profile Updated</p>
+      </div>
+      <div style="padding:28px 24px;">
+        <h2 style="color:#60a5fa;margin-top:0;">Hello, {recipient_name}!</h2>
+        <p>Your access profile in the <strong style="color:#a78bfa;">{tenant_name}</strong> SmartLift system has been updated by an administrator.</p>
+        <table style="width:100%;border-collapse:collapse;margin:20px 0;">
+          <tr><td style="padding:8px 12px;color:#94a3b8;">Role</td><td style="padding:8px 12px;color:#f1f5f9;font-weight:600;">{role}</td></tr>
+          <tr><td style="padding:8px 12px;color:#94a3b8;">Allowed Floors</td><td style="padding:8px 12px;color:#f1f5f9;font-weight:600;">{allowed_floors}</td></tr>
+        </table>
+        <p style="color:#94a3b8;font-size:13px;">If you have any questions about these changes, please contact your building administrator.</p>
+      </div>
+      <div style="padding:16px 24px;background:#1e293b;text-align:center;font-size:11px;color:#64748b;">
+        SmartLift Security Engine &middot; Powered by eMitra
+      </div>
+    </div>
+    """
+    return _resend_send(recipient_email, f"SmartLift Access Updated — {tenant_name}", html)
+
+
 def send_approval_email(recipient_email, recipient_name, role, floors, valid_until, tenant_name, qr_path=None):
     """Send an approval notification email when an access request is approved."""
     if not recipient_email:
@@ -185,18 +216,24 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-only-change-me')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI', 'sqlite:///smartlift_saas.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False
+
 @app.context_processor
 def inject_csrf():
     def generate_csrf_token():
-        if '_csrf_token' not in session:
-            session['_csrf_token'] = secrets.token_hex(16)
-        return session['_csrf_token']
+        return session.get('_csrf_token', '')
     return dict(csrf_token=generate_csrf_token)
 
 EXEMPT_CSRF_ENDPOINTS = {'api_faiss_verify', 'api_lift_request', 'api_voice_command', 'request_access'}
 
 @app.before_request
 def csrf_protect():
+    if '_csrf_token' not in session:
+        session['_csrf_token'] = secrets.token_hex(16)
+        session.permanent = True
+        session.modified = True
+
     if request.method == "POST":
         if request.endpoint in EXEMPT_CSRF_ENDPOINTS or request.path.startswith('/api/'):
             return
@@ -205,11 +242,17 @@ def csrf_protect():
         
         if request.is_json or request.content_type == 'application/json':
             if not token or token != request.headers.get('X-CSRFToken'):
+                print(f"[CSRF ERROR JSON] session_token={token}, header={request.headers.get('X-CSRFToken')}")
                 return jsonify({"error": "CSRF token missing or invalid."}), 403
             return
             
-        if not token or token != request.form.get('csrf_token'):
+        form_token = request.form.get('csrf_token')
+        if not token or token != form_token:
+            print(f"[CSRF ERROR FORM] session_token={token}, form_token={form_token}, endpoint={request.endpoint}")
             flash("CSRF token missing or invalid. Please reload the page and try again.", "danger")
+            # If there's no referrer and it's the login page, redirect back to login
+            if request.endpoint == 'login':
+                return redirect(url_for('login'))
             return redirect(request.referrer or url_for('superadmin_dashboard'))
 
 os.makedirs('static/registered_faces', exist_ok=True)
@@ -791,12 +834,40 @@ def manage_users():
             except Exception as e:
                 print(f"Extraction Error: {e}")
                 
+        existing = None
         if enrollment_id:
             existing = User.query.filter_by(tenant_id=t_id, enrollment_id=enrollment_id).first()
-            if existing:
-                flash(f"Transaction Blocked: Enrollment ID '{enrollment_id}' officially belongs to {existing.name}.", "danger")
-                return redirect(url_for('manage_users'))
             
+        if existing:
+            # Upsert an existing user instead of blocking
+            existing.name = name
+            if email: existing.email = email
+            existing.access_type = access_role
+            existing.allowed_floors = floors
+            existing.department = department
+            existing.course = course
+            existing.batch = batch
+            if start_time: existing.access_start_time = start_time
+            if end_time: existing.access_end_time = end_time
+            if filepath:
+                existing.Face_encoding = filepath
+                existing.face_vector = face_vector_cache
+            
+            db.session.commit()
+            
+            try:
+                faiss_engine.build_index(User.query.filter_by(tenant_id=t_id).all())
+            except Exception as e:
+                print(f"[FAISS] Index rebuild skipped: {e}")
+                
+            tenant = Tenant.query.get(t_id)
+            tenant_name = tenant.name if tenant else 'SmartLift'
+            if existing.email:
+                send_update_email(existing.email, existing.name, existing.access_type, existing.allowed_floors, tenant_name)
+                
+            flash(f"User {existing.name} (Enrollment {enrollment_id}) updated successfully! Email notification sent.", "success")
+            return redirect(url_for('manage_users'))
+
         new_user = User(
             name=name, email=email, access_type=access_role, allowed_floors=floors, 
             Face_encoding=filepath, face_vector=face_vector_cache, 
@@ -885,6 +956,15 @@ def edit_user(user_id):
     u.email = request.form.get('email', u.email)
     u.access_type = request.form.get('access_role', u.access_type)
     u.allowed_floors = request.form.get('allowed_floors', u.allowed_floors)
+    # Prevent unique constraint errors on edit
+    if u.enrollment_id != request.form.get('enrollment_id'):
+        new_enroll_id = request.form.get('enrollment_id')
+        if new_enroll_id:
+            dup = User.query.filter_by(tenant_id=t_id, enrollment_id=new_enroll_id).first()
+            if dup:
+                flash(f"Cannot update: Enrollment ID '{new_enroll_id}' belongs to {dup.name}.", "danger")
+                return redirect(url_for('manage_users'))
+    
     u.enrollment_id = request.form.get('enrollment_id') or None
     u.department = request.form.get('department') or None
     u.course = request.form.get('course') or None
@@ -917,7 +997,14 @@ def edit_user(user_id):
         faiss_engine.build_index(User.query.filter_by(tenant_id=t_id).all())
     except Exception as e:
         print(f"[FAISS] Index rebuild skipped: {e}")
-    flash(f"User {u.name} updated successfully!", "success")
+        
+    # Send update email
+    if u.email:
+        tenant = Tenant.query.get(t_id)
+        tenant_name = tenant.name if tenant else 'SmartLift'
+        send_update_email(u.email, u.name, u.access_type, u.allowed_floors, tenant_name)
+        
+    flash(f"User {u.name} updated successfully! Email notification sent.", "success")
     return redirect(url_for('manage_users'))
 
 # --------------------------

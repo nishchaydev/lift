@@ -1,39 +1,35 @@
-# SmartLift — Elevator Authentication System
-
-> **Minor Project — Elevator Authentication System**  
-> **Developed for CDGi College by:**  
-> Nishchay Gupta • Mohit Vyas • Nimish Sharma • Manami Hada
+# SmartLift — System Architecture & Explanation
 
 ## One-Line Summary
 
-**SmartLift is a smart elevator that recognizes your FACE 👤 or scans your QR code 📱, then decides if you're allowed to go to the floor you want.**
+**SmartLift is an intelligent Elevator Authentication System that recognizes users via facial recognition 👤 or QR code 📱, then enforces role-based access control for floor selection.**
 
 ---
 
 ## The Big Picture (Simplified)
 
 ```
-YOU walk to a lift
+User approaches the lift
     ↓
-Camera sees your FACE  👁️  (or you show a QR code)
+Camera detects FACE 👁️ (or scans QR code)
     ↓
-System checks: "Do I know this person?" 🤔
+System checks: "Is this user registered in the database?" 🤔
     ↓
-YES → "Which floor?"  →  Checks if you're ALLOWED  →  Lift goes! 🛗
-NO  → "GET OUT."  🚫
+YES → "Which floor?" → Checks allowed floors (RBAC) → Lift dispatches 🛗
+NO  → "Access Denied." 🚫
 ```
 
 ---
 
-## 🧱 How the Project is Built (The 2 Programs)
+## 🧱 How the Project is Built (Core Components)
 
 | File | What It Does | How You Run It |
 |---|---|---|
-| **`app.py`** | The **WEB DASHBOARD** — a website where admins manage everything (add users, view logs, approve visitors) | `python app.py` → opens at `localhost:8000` |
-| **`main.py`** | The **EDGE NODE** — the physical lift controller that uses your camera + microphone to authenticate people in real-time | `python main.py` → opens your webcam |
+| **`app.py`** | The **WEB DASHBOARD** — a centralized interface where admins manage users, view access logs, and approve visitors. | `python app.py` → opens at `localhost:8000` |
+| **`main.py`** | The **EDGE NODE** — the physical lift controller that handles real-time camera/microphone authentication. | `python main.py` → activates webcam/hardware |
 
 > [!IMPORTANT]
-> These two programs share the **same database** (`instance/smartlift_saas.db`). So when an admin adds a user on the website, `main.py` can immediately recognize them at the camera.
+> These two programs share the **same database** (`instance/smartlift_saas.db`). This ensures that when an administrator registers a user on the dashboard, the Edge Node (`main.py`) instantly recognizes them without delay.
 
 ---
 
@@ -120,7 +116,7 @@ erDiagram
 
 ---
 
-### 👑 Table 2: `SuperAdmin` — The God Account (You, the founders)
+### 👑 Table 2: `SuperAdmin` — The God Account (System Founders)
 
 | Column | What It Stores | Example |
 |---|---|---|
@@ -151,15 +147,12 @@ SuperAdmin can: add/remove Tenants, suspend subscriptions, manage everything.
 
 Each Admin is **locked to ONE tenant**. They can only see/manage users in their own building.
 
-> [!WARNING]
-> **SECURITY NOTICE:** The default credentials above (`founder@smartlift.com` and `admin@demo.com`) are for demo and initial setup purposes only. **You MUST change these passwords, rotate the session secrets, and remove any unused demo accounts before deploying this system to production.** Failure to do so will leave the system entirely vulnerable to unauthorized access.
-
 ---
 
 ### ⭐ Table 4: `User` — THE MAIN USER TABLE (People who use the lift)
 
 > [!IMPORTANT]
-> This is the most important table. Every person who can use the lift lives here.
+> This is the most important table. Every person who can use the lift is recorded here.
 
 | Column | What It Stores | Example |
 |---|---|---|
@@ -187,12 +180,12 @@ static/registered_faces/
 └── ...
 ```
 
-**How face recognition works (simplified version):**
+**How face recognition works:**
 1. Admin uploads a photo → saved to `static/registered_faces/`
-2. AI extracts a 128-number fingerprint of the face → stored in `face_vector` column
-3. When you stand in front of camera → AI extracts YOUR 128-number fingerprint
-4. It compares your fingerprint to ALL stored fingerprints → finds closest match
-5. If close enough → **YOU'RE IN!** If not → **REJECTED!**
+2. AI extracts a 128-dimensional facial encoding → stored in the `face_vector` database column
+3. User stands in front of the camera → AI extracts the live 128-dimensional encoding
+4. The system compares the live encoding to all stored encodings using FAISS vector search
+5. If the mathematical distance is close enough (match) → **Access Granted!** Otherwise → **Access Denied!**
 
 ---
 
@@ -242,7 +235,7 @@ static/registered_faces/
 |---|---|---|
 | `Log_id` | Unique log ID | `1847` |
 | `User_id` | Who (NULL = unknown/visitor) | `42` |
-| `timestlap` | When it happened (yes, typo is intentional 😅) | `2026-05-19 13:04:22` |
+| `timestlap` | When it happened | `2026-05-19 13:04:22` |
 | `Source_floor` | Where they came from | `0` (lobby) |
 | `Floor_selection` | Where they wanted to go | `3` |
 | `status` | What happened | `"Granted"`, `"Denied - Out of Hours"`, `"QR Guest [Amazon] - Granted"` |
@@ -273,42 +266,42 @@ static/registered_faces/
 ### Flow 1: Face Recognition (main.py — physical camera)
 
 ```
-1. main.py boots → reads edge_node_config.json to know which Tenant
-2. Loads ALL users for that Tenant from DB
-3. Opens webcam → shows "SMART LIFT NODE" overlay
-4. Every 3 seconds, scans for faces
-5. If face found:
-   a. Checks liveness (is it a real face or a photo?) 
-   b. Extracts 128-dim vector
-   c. Compares against all known face vectors
-   d. If match: "Welcome Aarav! Which floor?"
-   e. Listens to voice command → "Floor 3"
-   f. Checks: Is floor 3 in Aarav's allowed_floors?
-   g. YES → Sends "GOTO:3" to Arduino → Lift moves!
-   h. NO → "Access Denied. Your role doesn't permit floor 3."
+1. main.py boots → reads edge_node_config.json to identify the assigned Tenant
+2. Loads ALL user vectors for that Tenant from the database
+3. Activates webcam → displays "SMART LIFT NODE" UI overlay
+4. Periodically scans the feed for faces
+5. If a face is detected:
+   a. Performs liveness detection (verifying it's a real person, not a photo) 
+   b. Extracts 128-dimensional facial encoding
+   c. Compares against known encodings using FAISS
+   d. Match found → "Welcome [Name]! Which floor?"
+   e. Awaits voice command → "Floor 3"
+   f. Validates: Is floor 3 in the user's `allowed_floors`?
+   g. YES → Transmits "GOTO:3" signal to hardware relay → Lift activates
+   h. NO → "Access Denied. Floor restriction applied."
 ```
 
 ### Flow 2: QR Code (main.py — physical camera)
 
 ```
-1. Camera spots a QR code in the frame
-2. Decodes it → gets the hash (e.g., "SL-a3f8b2c1...")
-3. Looks up VisitorPass table for that hash
-4. Checks: Is it Active? Not expired?
-5. YES → Auto-dispatches lift to the allowed floor
-6. NO → "Unauthorized QR Token."
+1. Camera detects a QR code in the frame
+2. Decodes QR → extracts the secure hash (e.g., "SL-a3f8b2c1...")
+3. Queries VisitorPass table for the corresponding hash
+4. Validates: Is it Active? Has it expired?
+5. YES → Auto-dispatches the lift to the predefined allowed floor
+6. NO → "Unauthorized or Expired QR Token."
 ```
 
 ### Flow 3: Web Dashboard Verify (app.py — browser)
 
 ```
-1. Admin logs in at localhost:8000
-2. Goes to /verify → opens webcam IN THE BROWSER
-3. Browser captures frame → sends to /api/faiss_verify
-4. Server runs FAISS vector search (DeepFace + FAISS)
-5. If match → redirects to /lift_control
-6. User picks a floor on screen → sends to /api/lift_request
-7. Server checks RBAC → logs result → lift dispatches
+1. Admin logs into the dashboard at localhost:8000
+2. Navigates to /verify → activates browser-based webcam stream
+3. Browser captures frame → transmits to `/api/faiss_verify` endpoint
+4. Server executes FAISS vector search (DeepFace + FAISS)
+5. Match found → redirects to `/lift_control`
+6. User selects a floor on screen → transmits to `/api/lift_request`
+7. Server enforces RBAC rules → records AccessLog → hardware dispatch triggered
 ```
 
 ---
@@ -317,17 +310,17 @@ static/registered_faces/
 
 | Level | Who | Login | Can Do |
 |---|---|---|---|
-| **SuperAdmin** | You (founders) | `founder@smartlift.com` / `founder123` | Add/remove Tenants, suspend subscriptions, manage EVERYTHING |
-| **Admin** | College staff | `admin@demo.com` / `admin123` | Add/remove users, view logs, manage visitor passes, approve requests — **only for their own Tenant** |
-| **User** | Students/Faculty/Staff | No web login — they use their **FACE** | Walk up to camera, get authenticated, use the lift |
+| **SuperAdmin** | System Founders | `founder@smartlift.com` / `founder123` | Add/remove Tenants, suspend subscriptions, manage EVERYTHING |
+| **Admin** | College Staff | `admin@demo.com` / `admin123` | Add/remove users, view logs, manage visitor passes, approve requests — **only for their assigned Tenant** |
+| **User** | Students/Faculty | No web login (Uses **Face**) | Walk up to camera, get authenticated, operate the lift |
 
 ---
 
 ## 📧 Email System
 
-Uses **Resend API** via `mail.emitra.dev`:
-- **Welcome email** → sent when admin adds a new user
-- **Approval email** → sent when admin approves an access request (with QR code)
+Utilizes the **Resend API** via `mail.emitra.dev`:
+- **Welcome email** → Dispatched when an administrator registers a new user
+- **Approval email** → Dispatched when an administrator approves an access request (includes QR code attachment)
 
 ---
 
@@ -335,11 +328,11 @@ Uses **Resend API** via `mail.emitra.dev`:
 
 | Component | Tech Used | Purpose |
 |---|---|---|
-| Face Detection | OpenCV Haar Cascades | Quick "is there a face?" check |
-| Face Recognition (Primary) | `face_recognition` (dlib) | 128-dim encoding comparison |
-| Face Recognition (Fallback) | DeepFace + FAISS | When dlib isn't installed |
-| Liveness Detection | Laplacian variance | Prevents photo spoofing |
-| Voice Commands | SpeechRecognition + pyttsx3 | "Floor three please" |
+| Face Detection | OpenCV Haar Cascades | Rapid facial region localization |
+| Face Recognition (Primary) | `face_recognition` (dlib) | 128-dim encoding extraction & comparison |
+| Face Recognition (Fallback) | DeepFace + FAISS | Fallback vector analysis |
+| Liveness Detection | Laplacian variance | Anti-spoofing mechanism |
+| Voice Commands | SpeechRecognition + pyttsx3 | Natural language floor selection |
 | Vector Search | FAISS (Facebook AI) | O(1) nearest-neighbor face matching |
 
 ---
@@ -356,17 +349,3 @@ Uses **Resend API** via `mail.emitra.dev`:
 | Edge node binding | `edge_node_config.json` | JSON `{"tenant_id": 1}` |
 | Login passwords | `super_admin.password` / `admin.password` columns | pbkdf2:sha256 hash |
 | Access history | `access_log` table in DB | Timestamped rows |
-
----
-
-## 👥 Team & Credits
-
-**SmartLift** was developed as a Minor Project under the topic **Elevator Authentication System** for **Chameli Devi Group of Institutions (CDGI)**.
-
-### Development Team
-- **Nishchay Gupta**
-- **Mohit Vyas**
-- **Nimish Sharma**
-- **Manami Hada**
-
-Built with ❤️ for Modern Institutional Security.

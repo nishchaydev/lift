@@ -22,6 +22,7 @@
                 <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-key"></i> Remote Credentials Rotation</h3>
                 <p style="color:var(--text-muted); margin-bottom:1.5rem;">Update the localized access keys for Administrator <strong style="color:var(--accent)">{{ admin.email }}</strong>.</p>
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="form-group">
                         <label>New Administrative Password</label>
                         <input type="password" name="new_password" required placeholder="Enter PBKDF2 Master Key" style="font-family: monospace;">

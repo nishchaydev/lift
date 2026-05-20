@@ -131,6 +131,7 @@
             <div class="glass-panel" style="align-self: start;">
                 <h3 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-user-plus" style="color: var(--accent);"></i> Enroll Identity</h3>
                 <form method="POST" enctype="multipart/form-data" id="enrollForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="form-group">
                         <label>Full Name</label>
                         <input type="text" name="name" required placeholder="Full Name (e.g. Rahul Sharma)">
@@ -243,6 +244,7 @@
             <button class="modal-close" onclick="closeModal('editUserModal')">&times;</button>
         </div>
         <form id="editUserForm" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div id="editUserContent">
                 <div style="text-align:center; padding:2rem; color:var(--text-muted);"><div class="loader"></div>Loading...</div>
             </div>
@@ -266,6 +268,7 @@
             <div style="display:flex; gap:1rem; justify-content:center;">
                 <button type="button" class="btn-primary" style="background:var(--text-muted);" onclick="closeModal('deleteUserModal')">Cancel</button>
                 <form id="deleteUserForm" method="POST" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <button type="submit" class="btn-primary" style="background:var(--danger); box-shadow:0 4px 12px rgba(248,113,113,0.4);"><i class="fa-solid fa-trash"></i> Delete Permanently</button>
                 </form>
             </div>
